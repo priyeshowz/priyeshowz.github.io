@@ -42,6 +42,14 @@
       z-index: 100;
     }
 
+    .ghost-cube {
+      position: absolute;
+      border-radius: 6px;
+      background: white;
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
     .signature {
       position: fixed;
       bottom: 16px;
@@ -70,7 +78,7 @@
     document.body.style.background =
       bgColors[Math.floor(Math.random() * bgColors.length)];
 
-    // CUBE LINKS
+    // CUBE LINKS - All 6 unique ones
     const links = [
       { url: "https://priyeshranjan.com", label: "home" },
       { url: "https://priyeshowz.substack.com", label: "blog" },
@@ -89,8 +97,9 @@
     }
 
     class Cube {
-      constructor(link) {
+      constructor(link, isGhost = false) {
         this.link = link;
+        this.isGhost = isGhost;
         this.size = 80;
         this.x = Math.random() * (window.innerWidth - this.size);
         this.y = Math.random() * (window.innerHeight - this.size);
@@ -100,21 +109,27 @@
         this.rotationSpeed = randomRange(-3, 3);
         
         this.element = document.createElement("div");
-        this.element.className = "cube";
+        
+        if (isGhost) {
+          this.element.className = "ghost-cube";
+        } else {
+          this.element.className = "cube";
+          this.element.style.background = randomColor();
+          this.element.style.fontSize = "14px";
+          this.element.textContent = link.label;
+          
+          this.element.onclick = () => {
+            window.location.href = link.url;
+          };
+        }
+        
         this.element.style.width = this.size + "px";
         this.element.style.height = this.size + "px";
-        this.element.style.background = randomColor();
-        this.element.style.fontSize = "14px";
-        this.element.textContent = link.label;
-        
-        this.element.onclick = () => {
-          window.location.href = link.url;
-        };
         
         document.body.appendChild(this.element);
       }
 
-      update(cubes) {
+      update(allCubes) {
         // Move
         this.x += this.vx;
         this.y += this.vy;
@@ -131,7 +146,7 @@
         }
 
         // Collision detection with other cubes
-        for (let other of cubes) {
+        for (let other of allCubes) {
           if (other === this) continue;
           
           const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
@@ -165,16 +180,24 @@
       }
     }
 
-    // Create cubes
-    const cubes = [];
-    for (let i = 0; i < 14; i++) {
-      cubes.push(new Cube(links[i % links.length]));
+    // Create all cubes
+    const allCubes = [];
+    
+    // Create 5-6 ghost cubes first (background layer)
+    const ghostCount = 5 + Math.floor(Math.random() * 2); // 5 or 6
+    for (let i = 0; i < ghostCount; i++) {
+      allCubes.push(new Cube(null, true));
+    }
+    
+    // Create 6 labeled cubes (foreground layer)
+    for (let i = 0; i < links.length; i++) {
+      allCubes.push(new Cube(links[i], false));
     }
 
     // Animation loop
     function animate() {
-      for (let cube of cubes) {
-        cube.update(cubes);
+      for (let cube of allCubes) {
+        cube.update(allCubes);
       }
       requestAnimationFrame(animate);
     }
