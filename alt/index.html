@@ -225,25 +225,37 @@
     }
 
     function openInBrowser() {
-      // Copy current URL to clipboard
+      // Use the full current URL including /alt
       const url = window.location.href;
       
-      // Try to open in default browser (works on some platforms)
-      if (navigator.share) {
-        navigator.share({
-          title: 'Open in Browser',
-          url: url
-        }).catch(() => {
-          // Fallback: copy to clipboard
-          copyToClipboard(url);
-        });
-      } else {
+      // For Instagram, open in external browser directly
+      window.location.href = 'googlechrome://navigate?url=' + encodeURIComponent(url);
+      
+      // Fallback: try intent URL for Android
+      setTimeout(() => {
+        window.location.href = 'intent://' + url.replace(/https?:\/\//, '') + '#Intent;end';
+      }, 500);
+      
+      // Final fallback: copy to clipboard
+      setTimeout(() => {
         copyToClipboard(url);
-      }
+      }, 1000);
     }
 
     function copyToClipboard(text) {
-      // Create temporary input
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          // Success - silently copied
+        }).catch(() => {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
       const input = document.createElement('input');
       input.value = text;
       input.style.position = 'fixed';
@@ -253,9 +265,8 @@
       
       try {
         document.execCommand('copy');
-        alert('URL copied! Paste it in your browser.');
       } catch (err) {
-        alert('Please manually copy this URL and open it in your browser:\n\n' + text);
+        console.log('Copy failed');
       }
       
       document.body.removeChild(input);
@@ -341,7 +352,7 @@
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏸ stop';
+      musicControl.textContent = '⏸ pause';
     }
 
     function resetMusicUI() {
