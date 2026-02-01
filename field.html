@@ -1,112 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>field</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
-    :root {
-      --bg: hsl(0, 0%, 95%);
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     body {
-      margin: 0;
-      height: 100vh;
-      overflow: hidden;
-      background: var(--bg);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: black;
     }
 
     .cube {
       position: absolute;
-      width: 72px;
-      height: 72px;
+      width: 80px;
+      height: 80px;
       border-radius: 6px;
-      opacity: 0.85;
-      animation: float linear infinite;
-      touch-action: manipulation;
+      cursor: pointer;
+      animation: fly linear infinite;
+      mix-blend-mode: difference;
     }
 
-    @keyframes float {
+    @keyframes fly {
       from {
         transform: translate(0, 0) rotate(0deg);
       }
       to {
-        transform: translate(var(--dx), var(--dy)) rotate(180deg);
+        transform: translate(var(--dx), var(--dy)) rotate(720deg);
       }
     }
 
-    .label {
+    .message {
       position: fixed;
-      bottom: 10vh;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 1rem;
-      color: rgba(0, 0, 0, 0.7);
-      text-align: center;
-      max-width: 85%;
-      opacity: 0;
-      transition: opacity 1.5s ease;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      opacity: 0.85;
+      z-index: 10;
       pointer-events: none;
+      mix-blend-mode: difference;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="label" id="label"></div>
+  <div class="message">you were not supposed to stay long</div>
 
   <script>
-    // Random soft background each load
-    document.documentElement.style.setProperty(
-      "--bg",
-      `hsl(${Math.random() * 360}, 25%, 92%)`
-    );
+    // LOUD BACKGROUND
+    const bgColors = [
+      "#ff005d", "#00ffd5", "#ffe600",
+      "#7b00ff", "#00ff44", "#ff7a00"
+    ];
+    document.body.style.background =
+      bgColors[Math.floor(Math.random() * bgColors.length)];
 
-    const pages = [
-      { text: "home", url: "/" },
-      { text: "writing", url: "/#writing" },
-      { text: "substack", url: "https://priyeshowz.substack.com/" },
-      { text: "goodreads", url: "https://www.goodreads.com/" },
-      { text: "letterboxd", url: "https://letterboxd.com/" }
+    // CUBE LINKS
+    const links = [
+      { url: "/", label: "home" },
+      { url: "https://priyeshowz.substack.com", label: "writing" },
+      { url: "https://www.goodreads.com", label: "reading" },
+      { url: "https://letterboxd.com", label: "movies" }
     ];
 
-    const label = document.getElementById("label");
-
-    function showLabel(text) {
-      label.textContent = text;
-      label.style.opacity = 1;
-      setTimeout(() => {
-        label.style.opacity = 0;
-      }, 2500);
+    function randomColor() {
+      return `hsl(${Math.random() * 360}, 100%, 60%)`;
     }
 
-    pages.forEach(page => {
-      const cube = document.createElement("a");
+    function spawnCube(link) {
+      const cube = document.createElement("div");
       cube.className = "cube";
-      cube.href = page.url;
-      cube.target = page.url.startsWith("http") ? "_blank" : "_self";
+      cube.style.background = randomColor();
 
-      const hue = Math.floor(Math.random() * 360);
-      cube.style.background = `hsla(${hue}, 70%, 60%, 0.85)`;
+      const size = 80;
+      cube.style.left = Math.random() * (window.innerWidth - size) + "px";
+      cube.style.top  = Math.random() * (window.innerHeight - size) + "px";
 
-      cube.style.left = Math.random() * 90 + "vw";
-      cube.style.top = Math.random() * 90 + "vh";
+      const dx = (Math.random() * 2 - 1) * window.innerWidth;
+      const dy = (Math.random() * 2 - 1) * window.innerHeight;
 
-      const dx = (Math.random() * 200 - 100) + "vw";
-      const dy = (Math.random() * 200 - 100) + "vh";
+      cube.style.setProperty("--dx", dx + "px");
+      cube.style.setProperty("--dy", dy + "px");
 
-      cube.style.setProperty("--dx", dx);
-      cube.style.setProperty("--dy", dy);
+      const duration = 8 + Math.random() * 10;
+      cube.style.animationDuration = duration + "s";
 
-      cube.style.animationDuration = (40 + Math.random() * 40) + "s";
-
-      cube.addEventListener("mouseenter", () => showLabel(page.text));
-      cube.addEventListener("touchstart", () => showLabel(page.text));
+      cube.onclick = () => {
+        window.location.href = link.url;
+      };
 
       document.body.appendChild(cube);
-    });
+    }
+
+    // SPAWN MANY CUBES
+    for (let i = 0; i < 14; i++) {
+      spawnCube(links[i % links.length]);
+    }
   </script>
 
 </body>
