@@ -3,22 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <title>field</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
   <style>
     :root {
       --bg: #000;
     }
 
-    body {
+    html, body {
       margin: 0;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       background: var(--bg);
+      touch-action: manipulation;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* faint tortoise */
+    /* tortoise */
     .tortoise {
       position: fixed;
       inset: 0;
@@ -26,9 +28,8 @@
       align-items: center;
       justify-content: center;
       font-size: min(70vw, 70vh);
-      opacity: 0.08;
-      color: black;
-      filter: grayscale(1);
+      opacity: 0.16;
+      color: #000;
       pointer-events: none;
       user-select: none;
       z-index: 0;
@@ -38,32 +39,10 @@
       position: absolute;
       width: 256px;
       height: 256px;
-      border-radius: 6px;
-      animation: fly linear infinite;
+      border-radius: 8px;
       cursor: pointer;
-      touch-action: manipulation;
       z-index: 2;
       will-change: transform;
-    }
-
-    @keyframes fly {
-      from {
-        transform: translate(0, 0) rotate(0deg);
-      }
-      to {
-        transform: translate(var(--dx), var(--dy)) rotate(720deg);
-      }
-    }
-
-    .footer {
-      position: fixed;
-      bottom: 32px;
-      width: 100%;
-      text-align: center;
-      font-size: 1.1rem;
-      color: rgba(0,0,0,0.7);
-      mix-blend-mode: multiply;
-      pointer-events: none;
     }
   </style>
 </head>
@@ -71,10 +50,13 @@
 <body>
   <div class="tortoise">🐢</div>
 
-
   <script>
-const SPEED = 0.5; // 0.5 = 2x faster
-    // loud background colors
+    /* ---------- CONFIG ---------- */
+
+    const CUBE_SIZE = 256;
+    const CUBE_COUNT = 12;
+    const BASE_SPEED = 2.8; // increase this if you want even more chaos
+
     const backgrounds = [
       "#ffe600",
       "#ff3cac",
@@ -83,11 +65,6 @@ const SPEED = 0.5; // 0.5 = 2x faster
       "#7cff00",
       "#8b5cf6"
     ];
-
-    document.documentElement.style.setProperty(
-      "--bg",
-      backgrounds[Math.floor(Math.random() * backgrounds.length)]
-    );
 
     const links = [
       { url: "/", color: "#000000" },
@@ -99,31 +76,96 @@ const SPEED = 0.5; // 0.5 = 2x faster
       { url: "https://instagram.com/priyeshowz", color: "#e1306c" }
     ];
 
-    const cubeCount = Math.min(14, Math.floor(window.innerWidth / 60));
+    /* ---------- BACKGROUND ---------- */
 
-    for (let i = 0; i < cubeCount; i++) {
-      const cube = document.createElement("div");
-      cube.className = "cube";
+    document.documentElement.style.setProperty(
+      "--bg",
+      backgrounds[Math.floor(Math.random() * backgrounds.length)]
+    );
+
+    /* ---------- PHYSICS ---------- */
+
+    const cubes = [];
+    const width = () => window.innerWidth;
+    const height = () => window.innerHeight;
+
+    function random(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function spawnFarEnough(x, y) {
+      return cubes.every(c => {
+        const dx = c.x - x;
+        const dy = c.y - y;
+        return Math.hypot(dx, dy) > CUBE_SIZE * 1.3;
+      });
+    }
+
+    for (let i = 0; i < CUBE_COUNT; i++) {
+      let x, y;
+      do {
+        x = random(0, width() - CUBE_SIZE);
+        y = random(0, height() - CUBE_SIZE);
+      } while (!spawnFarEnough(x, y));
 
       const link = links[i % links.length];
-      cube.style.background = link.color;
 
-      cube.style.left = Math.random() * 100 + "vw";
-      cube.style.top = Math.random() * 100 + "vh";
+      const el = document.createElement("div");
+      el.className = "cube";
+      el.style.background = link.color;
+      el.onclick = () => window.location.href = link.url;
 
-      const dx = (Math.random() * 200 - 100) + "vw";
-      const dy = (Math.random() * 200 - 100) + "vh";
-      cube.style.setProperty("--dx", dx);
-      cube.style.setProperty("--dy", dy);
+      document.body.appendChild(el);
 
-      cube.style.animationDuration = 40 + Math.random() * 40 + "s";
-
-      cube.onclick = () => {
-        window.location.href = link.url;
-      };
-
-      document.body.appendChild(cube);
+      cubes.push({
+        el,
+        x,
+        y,
+        vx: random(-BASE_SPEED, BASE_SPEED),
+        vy: random(-BASE_SPEED, BASE_SPEED),
+      });
     }
+
+    function update() {
+      for (let i = 0; i < cubes.length; i++) {
+        const c = cubes[i];
+
+        c.x += c.vx;
+        c.y += c.vy;
+
+        /* wall collisions */
+        if (c.x <= 0 || c.x + CUBE_SIZE >= width()) c.vx *= -1;
+        if (c.y <= 0 || c.y + CUBE_SIZE >= height()) c.vy *= -1;
+
+        /* cube collisions */
+        for (let j = i + 1; j < cubes.length; j++) {
+          const o = cubes[j];
+          const dx = o.x - c.x;
+          const dy = o.y - c.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < CUBE_SIZE) {
+            const angle = Math.atan2(dy, dx);
+            const force = 0.6;
+
+            const fx = Math.cos(angle) * force;
+            const fy = Math.sin(angle) * force;
+
+            c.vx -= fx;
+            c.vy -= fy;
+            o.vx += fx;
+            o.vy += fy;
+          }
+        }
+
+        c.el.style.transform =
+          `translate3d(${c.x}px, ${c.y}px, 0) rotate(${(c.x + c.y) * 0.1}deg)`;
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    update();
   </script>
 </body>
 </html>
