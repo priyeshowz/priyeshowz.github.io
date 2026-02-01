@@ -10,21 +10,22 @@
       margin: 0;
       padding: 0;
       width: 100%;
+      /* Use dynamic viewport height to account for mobile address bars */
       height: 100dvh; 
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: black;
+      background: black; /* Fallback */
     }
 
     body {
-      position: fixed;
+      position: fixed; /* Locks the body in place on iOS/Android */
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
     }
 
-    /* --- CUBES --- */
+    /* Common styles */
     .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
@@ -39,7 +40,7 @@
       user-select: none;
       text-decoration: none;
       will-change: transform;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
     }
 
     .cube {
@@ -62,7 +63,6 @@
       z-index: 50;
     }
 
-    /* --- UI ELEMENTS --- */
     .signature {
       position: fixed;
       bottom: 16px;
@@ -101,10 +101,6 @@
 
     .music-control.active {
       display: block;
-    }
-
-    .music-control:hover {
-      background: rgba(255, 0, 102, 0.8);
     }
   </style>
 </head>
@@ -164,6 +160,7 @@
     let isPlaying = false;
 
     // --- VIEWPORT HELPER ---
+    // This gets the REAL visible size, excluding address bars
     function getDimensions() {
       if (window.visualViewport) {
         return {
@@ -256,11 +253,13 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
+        // BOUNDARY CHECKS - WITH CLAMPING
+        // We forcibly reset position (this.x = ...) to ensure it never stays out
         if (this.x <= 0) {
-          this.vx = Math.abs(this.vx); 
+          this.vx = Math.abs(this.vx); // Force positive velocity
           this.x = 0;
         } else if (this.x >= maxX) {
-          this.vx = -Math.abs(this.vx); 
+          this.vx = -Math.abs(this.vx); // Force negative velocity
           this.x = maxX;
         }
 
@@ -272,6 +271,7 @@
           this.y = maxY;
         }
 
+        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
@@ -281,6 +281,7 @@
             const distSq = dx * dx + dy * dy;
             const minDist = this.size; 
 
+            // Optimization: check squared distance to avoid Math.sqrt every frame
             if (distSq < minDist * minDist) {
               const distance = Math.sqrt(distSq);
               
@@ -320,6 +321,8 @@
     }
     animate();
 
+    // HARD RESIZE HANDLER
+    // If screen rotates or address bar moves, pull everything back inside
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
@@ -327,51 +330,6 @@
         cube.y = Math.min(cube.y, dims.height - cube.size);
       });
     });
-  </script>
-
-  <script>
-    var ua = navigator.userAgent || navigator.vendor || window.opera;
-    var isInstagram = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
-
-    if (isInstagram) {
-      var escapeDiv = document.createElement('div');
-      escapeDiv.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: black;
-        color: white;
-        z-index: 10000;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        /* MATCHED FONT SETTINGS */
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-        font-weight: 600;
-        text-transform: lowercase;
-        letter-spacing: 0.02em;
-        text-align: center;
-        padding: 20px;
-      `;
-
-      var msg = document.createElement('p');
-      msg.innerText = "audio requires external browser";
-      msg.style.cssText = "font-size: 14px; margin-bottom: 20px; opacity: 0.8;";
-      
-      var btn = document.createElement('div');
-      btn.innerText = "open in chrome";
-      btn.style.cssText = `
-        border: 1px solid rgba(255,255,255,0.3);
-        padding: 12px 18px;
-        font-size: 14px;
-        opacity: 0.9;
-        border-radius: 6px;
-      `;
-
-      escapeDiv.appendChild(msg);
-      escapeDiv.appendChild(btn);
-      document.body.appendChild(escapeDiv);
-    }
   </script>
 
 </body>
