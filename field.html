@@ -6,98 +6,107 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
+    :root {
+      --bg: hsl(0, 0%, 95%);
+    }
+
     body {
       margin: 0;
       height: 100vh;
       overflow: hidden;
-      background: #f4f4f4;
+      background: var(--bg);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #111;
     }
 
     .cube {
       position: absolute;
-      width: 36px;
-      height: 36px;
-      background: rgba(0, 0, 0, 0.06);
-      opacity: 0;
-      animation:
-        drift 90s linear infinite,
-        fade 12s ease-in-out infinite;
-      cursor: pointer;
+      width: 72px;
+      height: 72px;
+      border-radius: 6px;
+      opacity: 0.85;
+      animation: float linear infinite;
+      touch-action: manipulation;
     }
 
-    @keyframes drift {
+    @keyframes float {
       from {
-        transform: translateY(0) rotate(8deg);
+        transform: translate(0, 0) rotate(0deg);
       }
       to {
-        transform: translateY(-120vh) rotate(8deg);
+        transform: translate(var(--dx), var(--dy)) rotate(180deg);
       }
     }
 
-    @keyframes fade {
-      0%, 100% { opacity: 0; }
-      50% { opacity: 1; }
-    }
-
-    #whisper {
+    .label {
       position: fixed;
-      bottom: 12vh;
+      bottom: 10vh;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 0.9rem;
-      color: #444;
+      font-size: 1rem;
+      color: rgba(0, 0, 0, 0.7);
+      text-align: center;
+      max-width: 85%;
       opacity: 0;
       transition: opacity 1.5s ease;
       pointer-events: none;
-      text-align: center;
-      max-width: 80%;
     }
   </style>
 </head>
 
 <body>
 
-  <div id="whisper"></div>
+  <div class="label" id="label"></div>
 
   <script>
-    const whispers = [
-      "you weren't supposed to click that",
-      "this page remembers you",
-      "nothing here is indexed",
-      "go back",
-      "not everything needs an audience",
-      "this is not the main page",
-      "some pages exist only once"
+    // Random soft background each load
+    document.documentElement.style.setProperty(
+      "--bg",
+      `hsl(${Math.random() * 360}, 25%, 92%)`
+    );
+
+    const pages = [
+      { text: "home", url: "/" },
+      { text: "writing", url: "/#writing" },
+      { text: "substack", url: "https://priyeshowz.substack.com/" },
+      { text: "goodreads", url: "https://www.goodreads.com/" },
+      { text: "letterboxd", url: "https://letterboxd.com/" }
     ];
 
-    const whisperEl = document.getElementById("whisper");
+    const label = document.getElementById("label");
 
-    function showWhisper() {
-      whisperEl.textContent =
-        whispers[Math.floor(Math.random() * whispers.length)];
-      whisperEl.style.opacity = 1;
-
+    function showLabel(text) {
+      label.textContent = text;
+      label.style.opacity = 1;
       setTimeout(() => {
-        whisperEl.style.opacity = 0;
-      }, 3000);
+        label.style.opacity = 0;
+      }, 2500);
     }
 
-    for (let i = 0; i < 7; i++) {
-      const cube = document.createElement("div");
+    pages.forEach(page => {
+      const cube = document.createElement("a");
       cube.className = "cube";
+      cube.href = page.url;
+      cube.target = page.url.startsWith("http") ? "_blank" : "_self";
 
-      cube.style.left = Math.random() * 100 + "vw";
-      cube.style.top = (60 + Math.random() * 80) + "vh";
-      cube.style.animationDelay = Math.random() * 20 + "s";
+      const hue = Math.floor(Math.random() * 360);
+      cube.style.background = `hsla(${hue}, 70%, 60%, 0.85)`;
 
-      cube.onclick = () => {
-        showWhisper();
-      };
+      cube.style.left = Math.random() * 90 + "vw";
+      cube.style.top = Math.random() * 90 + "vh";
+
+      const dx = (Math.random() * 200 - 100) + "vw";
+      const dy = (Math.random() * 200 - 100) + "vh";
+
+      cube.style.setProperty("--dx", dx);
+      cube.style.setProperty("--dy", dy);
+
+      cube.style.animationDuration = (40 + Math.random() * 40) + "s";
+
+      cube.addEventListener("mouseenter", () => showLabel(page.text));
+      cube.addEventListener("touchstart", () => showLabel(page.text));
 
       document.body.appendChild(cube);
-    }
+    });
   </script>
 
 </body>
