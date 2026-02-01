@@ -12,7 +12,6 @@
       width: 100%;
       height: 100dvh;
       overflow: hidden;
-      /* REVERTED: Back to original system font */
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: black;
     }
@@ -80,7 +79,6 @@
     /* --- UI ELEMENTS --- */
     .signature {
       position: fixed;
-      /* Safety margin for Instagram/iOS */
       bottom: max(30px, env(safe-area-inset-bottom) + 10px);
       right: 25px;
       font-size: 16px;
@@ -92,10 +90,8 @@
       color: white;
     }
 
-    /* REVERTED: Original Box Style Button */
     .music-control {
       position: fixed;
-      /* Safety margin for Instagram/iOS */
       bottom: max(30px, env(safe-area-inset-bottom) + 10px);
       left: 25px;
       
@@ -104,7 +100,7 @@
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 12px;
-      border: none; /* Reset button default */
+      border: none;
       
       z-index: 999;
       display: none;
@@ -120,11 +116,16 @@
       background: rgba(255, 0, 102, 0.8);
     }
 
+    /* FIX FOR INSTAGRAM AUDIO: Must be "visible" but transparent */
     #bgPlayer {
       position: absolute;
-      visibility: hidden;
+      top: 0;
+      left: 0;
       width: 1px; 
       height: 1px;
+      opacity: 0.01; /* Not hidden, just transparent */
+      pointer-events: none;
+      z-index: -1;
     }
   </style>
 </head>
@@ -148,7 +149,14 @@
         height: '100%',
         width: '100%',
         videoId: '',
-        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0 },
+        playerVars: { 
+          'playsinline': 1, 
+          'controls': 0, 
+          'disablekb': 1, 
+          'fs': 0, 
+          'rel': 0,
+          'origin': window.location.origin // Fix for some CORS blocks
+        },
         events: { 'onStateChange': onPlayerStateChange }
       });
     }
@@ -202,7 +210,11 @@
       cubeElement.classList.add('playing');
       currentPlayingCube = cubeElement;
       
+      // INSTAGRAM FIX: Force Unmute & Explicit Play
+      player.unMute(); 
+      player.setVolume(100);
       player.loadVideoById({ videoId: videoId, startSeconds: start });
+      player.playVideo(); // Redundant call helps wake up mobile players
       
       isPlaying = true;
       musicControl.classList.add('active');
@@ -245,8 +257,10 @@
         this.x = randomRange(10, dims.width - this.size - 10);
         this.y = randomRange(10, dims.height - this.size - 10);
         
-        this.vx = randomRange(-2, 2);
-        this.vy = randomRange(-2, 2);
+        // SLIGHTLY SLOWER BASE VELOCITY (-1.5 to 1.5 instead of -2 to 2)
+        // This helps control chaos on small screens
+        this.vx = randomRange(-1.5, 1.5);
+        this.vy = randomRange(-1.5, 1.5);
         this.rotation = Math.random() * 360;
         this.rotationSpeed = randomRange(-3, 3);
         
@@ -271,14 +285,19 @@
         document.body.appendChild(this.element);
       }
 
-      update(labeledCubes) {
+      // DELTA TIME UPDATE: Locks speed to REAL TIME, not FRAME RATE
+      update(labeledCubes, deltaTime) {
         const dims = getDimensions();
         const maxX = dims.width - this.size;
         const maxY = dims.height - this.size;
 
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotation += this.rotationSpeed;
+        // Normalize speed: 1.0 means "normal speed at 60fps"
+        // If 120fps, deltaTime is ~8ms, factor is 0.5 -> moves half distance per frame -> same total speed
+        const speedFactor = deltaTime / 16; 
+
+        this.x += this.vx * speedFactor;
+        this.y += this.vy * speedFactor;
+        this.rotation += this.rotationSpeed * speedFactor;
 
         if (this.x <= 0) { this.vx = Math.abs(this.vx); this.x = 0; }
         else if (this.x >= maxX) { this.vx = -Math.abs(this.vx); this.x = maxX; }
@@ -321,17 +340,25 @@
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Ghost count restoration
     const ghostCount = 5 + Math.floor(Math.random() * 2); 
     for (let i = 0; i < ghostCount; i++) ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
     for (let i = 0; i < links.length; i++) labeledCubes.push(new Cube(links[i], false));
 
-    function animate() {
-      for (let cube of ghostCubes) cube.update([]);
-      for (let cube of labeledCubes) cube.update(labeledCubes);
+    // --- ANIMATION LOOP WITH DELTA TIME ---
+    let lastTime = 0;
+    function animate(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      
+      // Cap deltaTime to prevent huge jumps if tab was inactive (max 100ms)
+      const deltaTime = Math.min(timestamp - lastTime, 100);
+      lastTime = timestamp;
+
+      for (let cube of ghostCubes) cube.update([], deltaTime);
+      for (let cube of labeledCubes) cube.update(labeledCubes, deltaTime);
+      
       requestAnimationFrame(animate);
     }
-    animate();
+    requestAnimationFrame(animate);
 
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
