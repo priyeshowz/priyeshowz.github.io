@@ -183,7 +183,7 @@
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏸ pause';
+      musicControl.textContent = '⏹️ stop';
     }
 
     function resetMusicUI() {
@@ -254,7 +254,6 @@
         this.rotation += this.rotationSpeed;
 
         // BOUNDARY CHECKS - WITH CLAMPING
-        // We forcibly reset position (this.x = ...) to ensure it never stays out
         if (this.x <= 0) {
           this.vx = Math.abs(this.vx); // Force positive velocity
           this.x = 0;
@@ -281,7 +280,6 @@
             const distSq = dx * dx + dy * dy;
             const minDist = this.size; 
 
-            // Optimization: check squared distance to avoid Math.sqrt every frame
             if (distSq < minDist * minDist) {
               const distance = Math.sqrt(distSq);
               
@@ -322,7 +320,6 @@
     animate();
 
     // HARD RESIZE HANDLER
-    // If screen rotates or address bar moves, pull everything back inside
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
@@ -330,6 +327,61 @@
         cube.y = Math.min(cube.y, dims.height - cube.size);
       });
     });
+  </script>
+
+  <script>
+    // DETECT INSTAGRAM / FACEBOOK / LINKEDIN
+    var ua = navigator.userAgent || navigator.vendor || window.opera;
+    // Simple check for common in-app browsers that break audio/physics
+    var isInstagram = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
+
+    if (isInstagram) {
+      // Create the Escape Hatch Overlay
+      var escapeDiv = document.createElement('div');
+      escapeDiv.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: black;
+        color: #ff005d;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: "Courier New", Courier, monospace;
+        text-align: center;
+        padding: 20px;
+      `;
+
+      var msg = document.createElement('h1');
+      msg.innerText = "INSTAGRAM KILLED THE AUDIO";
+      msg.style.cssText = "font-size: 24px; margin-bottom: 20px; text-transform: uppercase; font-weight: bold;";
+      
+      var sub = document.createElement('p');
+      sub.innerText = "This site requires a real browser.";
+      sub.style.cssText = "color: white; margin-bottom: 40px; font-size: 14px;";
+
+      var btn = document.createElement('div');
+      btn.innerText = "● tap dots above -> open in browser";
+      btn.style.cssText = `
+        border: 1px solid white;
+        padding: 15px 20px;
+        font-size: 14px;
+        font-weight: bold;
+        animation: blink 1s infinite;
+        cursor: pointer;
+      `;
+
+      // Add blink animation style
+      var styleSheet = document.createElement("style");
+      styleSheet.innerText = "@keyframes blink { 0% {opacity:1;} 50% {opacity:0.5;} 100% {opacity:1;} }";
+      document.head.appendChild(styleSheet);
+
+      escapeDiv.appendChild(msg);
+      escapeDiv.appendChild(sub);
+      escapeDiv.appendChild(btn);
+      document.body.appendChild(escapeDiv);
+    }
   </script>
 
 </body>
