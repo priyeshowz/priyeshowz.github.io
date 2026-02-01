@@ -330,7 +330,6 @@
   </script>
 
   <script>
-    // Detect In-App Browsers
     var ua = navigator.userAgent || navigator.vendor || window.opera;
     var isInstagram = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
 
@@ -346,23 +345,27 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-family: "Courier New", Courier, monospace;
+        /* MATCHED FONT SETTINGS */
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        font-weight: 600;
+        text-transform: lowercase;
+        letter-spacing: 0.02em;
         text-align: center;
         padding: 20px;
       `;
 
       var msg = document.createElement('p');
       msg.innerText = "audio requires external browser";
-      msg.style.cssText = "font-size: 14px; margin-bottom: 30px; opacity: 0.8; letter-spacing: 0.05em;";
+      msg.style.cssText = "font-size: 14px; margin-bottom: 20px; opacity: 0.8;";
       
       var btn = document.createElement('div');
-      btn.innerText = "● tap dots above -> open in browser";
+      btn.innerText = "open in chrome";
       btn.style.cssText = `
         border: 1px solid rgba(255,255,255,0.3);
         padding: 12px 18px;
-        font-size: 12px;
-        opacity: 0.7;
-        border-radius: 4px;
+        font-size: 14px;
+        opacity: 0.9;
+        border-radius: 6px;
       `;
 
       escapeDiv.appendChild(msg);
