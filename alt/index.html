@@ -10,19 +10,22 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100%;
+      /* Use dynamic viewport height to account for mobile address bars */
+      height: 100dvh; 
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: black; /* Fallback */
     }
 
     body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: black;
+      position: fixed; /* Locks the body in place on iOS/Android */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
 
-    /* Common styles for both cube types */
+    /* Common styles */
     .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
@@ -35,9 +38,9 @@
       text-transform: lowercase;
       letter-spacing: 0.02em;
       user-select: none;
-      text-decoration: none; /* For <a> tags */
-      /* Will-change hints to browser to prep for GPU animation */
-      will-change: transform; 
+      text-decoration: none;
+      will-change: transform;
+      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
     }
 
     .cube {
@@ -45,22 +48,12 @@
       z-index: 5;
     }
 
-    .cube:hover {
-      transform: scale(1.1);
-      z-index: 100;
-    }
-
     .ghost-cube {
       background: #333;
       opacity: 0.4;
       font-size: 20px;
-      transition: opacity 0.3s, box-shadow 0.3s, background-color 0.3s;
+      transition: opacity 0.3s;
       z-index: 1;
-    }
-
-    .ghost-cube:hover {
-      opacity: 0.6;
-      transform: scale(1.05);
     }
 
     .ghost-cube.playing {
@@ -83,15 +76,11 @@
       color: white;
     }
 
-    /* Hidden player container */
     #bgPlayer {
-      position: fixed;
-      bottom: -500px; /* Keep offscreen but technically visible to DOM */
-      left: 0;
-      width: 1px;
+      position: absolute;
+      visibility: hidden;
+      width: 1px; 
       height: 1px;
-      opacity: 0;
-      pointer-events: none;
     }
 
     .music-control {
@@ -113,11 +102,6 @@
     .music-control.active {
       display: block;
     }
-
-    .music-control:hover {
-      background: rgba(255, 0, 102, 0.8);
-      border-color: #ff0066;
-    }
   </style>
 </head>
 
@@ -125,56 +109,33 @@
 
   <div class="signature">priyesh</div>
   <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ pause</div>
-
   <div id="bgPlayer"></div>
 
   <script>
-    /**
-     * YOUTUBE IFRAME API SETUP
-     * Loads the player logic asynchronously to prevent page blocking.
-     */
+    // --- YOUTUBE API ---
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
     var player;
-    // This function is called automatically by YouTube API once ready
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('bgPlayer', {
         height: '100%',
         width: '100%',
-        videoId: '', // Initialize empty
-        playerVars: {
-          'playsinline': 1,
-          'controls': 0,
-          'disablekb': 1,
-          'fs': 0,
-          'rel': 0,
-          'autoplay': 1 // Enable autoplay so loadVideoById starts immediately
-        },
-        events: {
-          'onStateChange': onPlayerStateChange
-        }
+        videoId: '',
+        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0 },
+        events: { 'onStateChange': onPlayerStateChange }
       });
     }
 
     function onPlayerStateChange(event) {
-      // 0 = YT.PlayerState.ENDED
-      if (event.data === 0) {
-         resetMusicUI();
-      }
+      if (event.data === 0) resetMusicUI();
     }
 
-    /**
-     * VISUALS & CONFIG
-     */
-    const bgColors = [
-      "#ff005d", "#00ffd5", "#ffe600",
-      "#7b00ff", "#00ff44", "#ff7a00"
-    ];
-    document.body.style.background =
-      bgColors[Math.floor(Math.random() * bgColors.length)];
+    // --- LOGIC ---
+    const bgColors = ["#ff005d", "#00ffd5", "#ffe600", "#7b00ff", "#00ff44", "#ff7a00"];
+    document.body.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
 
     const links = [
       { url: "https://priyeshranjan.com", label: "home" },
@@ -198,30 +159,28 @@
     let currentPlayingCube = null;
     let isPlaying = false;
 
-    /**
-     * AUDIO CONTROL LOGIC
-     */
-    function playVideo(videoId, start, cubeElement) {
-      // Guard clause: if API isn't ready yet, do nothing
-      if (!player || typeof player.loadVideoById !== 'function') return;
-
-      const musicControl = document.getElementById('musicControl');
-      
-      // Visual feedback reset
-      if (currentPlayingCube) {
-        currentPlayingCube.classList.remove('playing');
+    // --- VIEWPORT HELPER ---
+    // This gets the REAL visible size, excluding address bars
+    function getDimensions() {
+      if (window.visualViewport) {
+        return {
+          width: window.visualViewport.width,
+          height: window.visualViewport.height
+        };
       }
-      
-      // Highlight new cube
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+    }
+
+    function playVideo(videoId, start, cubeElement) {
+      if (!player || typeof player.loadVideoById !== 'function') return;
+      const musicControl = document.getElementById('musicControl');
+      if (currentPlayingCube) currentPlayingCube.classList.remove('playing');
       cubeElement.classList.add('playing');
       currentPlayingCube = cubeElement;
-      
-      // Instant switch using API
-      player.loadVideoById({
-        videoId: videoId,
-        startSeconds: start
-      });
-      
+      player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
       musicControl.textContent = '⏸ pause';
@@ -239,23 +198,13 @@
 
     function toggleMusic() {
       if (!player) return;
-      
       if (isPlaying) {
         player.stopVideo();
         resetMusicUI();
       }
     }
 
-    /**
-     * PHYSICS & ANIMATION
-     */
-    function randomColor() {
-      return `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
-    }
-
-    function randomRange(min, max) {
-      return min + Math.random() * (max - min);
-    }
+    function randomRange(min, max) { return min + Math.random() * (max - min); }
 
     class Cube {
       constructor(link, isGhost = false, ghostLink = null) {
@@ -264,76 +213,78 @@
         this.ghostLink = ghostLink;
         this.size = 80;
         
-        // Initial Position
-        this.x = Math.random() * (window.innerWidth - this.size);
-        this.y = Math.random() * (window.innerHeight - this.size);
+        const dims = getDimensions();
+        // Spawn well within bounds
+        this.x = randomRange(10, dims.width - this.size - 10);
+        this.y = randomRange(10, dims.height - this.size - 10);
         
-        // Velocity
         this.vx = randomRange(-2, 2);
         this.vy = randomRange(-2, 2);
-        
-        // Rotation
         this.rotation = Math.random() * 360;
         this.rotationSpeed = randomRange(-3, 3);
         
-        // DOM Element Creation
         if (isGhost) {
           this.element = document.createElement("div");
           this.element.className = "ghost-cube";
           this.element.textContent = ghostLink.label;
-          this.element.onclick = () => {
-            playVideo(ghostLink.videoId, ghostLink.start, this.element);
-          };
+          this.element.onclick = () => playVideo(ghostLink.videoId, ghostLink.start, this.element);
         } else {
-          // Optimized: Use anchor tag for correct semantic HTML
           this.element = document.createElement("a");
           this.element.className = "cube";
           this.element.href = link.url;
           this.element.target = "_blank";
           this.element.rel = "noopener noreferrer";
-          this.element.style.background = randomColor();
+          this.element.style.background = `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
           this.element.style.fontSize = "14px";
           this.element.textContent = link.label;
         }
         
         this.element.style.width = this.size + "px";
         this.element.style.height = this.size + "px";
-        
-        // Initial placement
-        this.element.style.transform = 
-          `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
-        
         document.body.appendChild(this.element);
       }
 
       update(labeledCubes) {
-        // Move
+        const dims = getDimensions();
+        const maxX = dims.width - this.size;
+        const maxY = dims.height - this.size;
+
         this.x += this.vx;
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // Wall Collision
-        if (this.x <= 0 || this.x + this.size >= window.innerWidth) {
-          this.vx *= -1;
-          this.x = Math.max(0, Math.min(this.x, window.innerWidth - this.size));
-        }
-        if (this.y <= 0 || this.y + this.size >= window.innerHeight) {
-          this.vy *= -1;
-          this.y = Math.max(0, Math.min(this.y, window.innerHeight - this.size));
+        // BOUNDARY CHECKS - WITH CLAMPING
+        // We forcibly reset position (this.x = ...) to ensure it never stays out
+        if (this.x <= 0) {
+          this.vx = Math.abs(this.vx); // Force positive velocity
+          this.x = 0;
+        } else if (this.x >= maxX) {
+          this.vx = -Math.abs(this.vx); // Force negative velocity
+          this.x = maxX;
         }
 
-        // Cube-to-Cube Collision (only for labeled cubes)
+        if (this.y <= 0) {
+          this.vy = Math.abs(this.vy);
+          this.y = 0;
+        } else if (this.y >= maxY) {
+          this.vy = -Math.abs(this.vy);
+          this.y = maxY;
+        }
+
+        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
             
             const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
             const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = this.size; // Simple box collision approximation
+            const distSq = dx * dx + dy * dy;
+            const minDist = this.size; 
 
-            if (distance < minDistance) {
-              // Swap velocities with slight noise
+            // Optimization: check squared distance to avoid Math.sqrt every frame
+            if (distSq < minDist * minDist) {
+              const distance = Math.sqrt(distSq);
+              
               const tempVx = this.vx;
               const tempVy = this.vy;
               this.vx = other.vx + randomRange(-0.5, 0.5);
@@ -341,9 +292,8 @@
               other.vx = tempVx + randomRange(-0.5, 0.5);
               other.vy = tempVy + randomRange(-0.5, 0.5);
 
-              // Separate to prevent sticking
               const angle = Math.atan2(dy, dx);
-              const overlap = minDistance - distance;
+              const overlap = minDist - distance;
               this.x += Math.cos(angle) * overlap / 2;
               this.y += Math.sin(angle) * overlap / 2;
               other.x -= Math.cos(angle) * overlap / 2;
@@ -352,47 +302,32 @@
           }
         }
 
-        // Render using GPU
-        this.element.style.transform = 
-          `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
+        this.element.style.transform = `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
       }
     }
 
-    /**
-     * INITIALIZATION
-     */
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Create Ghost Cubes (Background)
+    // Init
     const ghostCount = 5 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < ghostCount; i++) {
-      ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
-    }
-    
-    // Create Link Cubes (Foreground)
-    for (let i = 0; i < links.length; i++) {
-      labeledCubes.push(new Cube(links[i], false));
-    }
+    for (let i = 0; i < ghostCount; i++) ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
+    for (let i = 0; i < links.length; i++) labeledCubes.push(new Cube(links[i], false));
 
-    // Animation Loop
     function animate() {
-      for (let cube of ghostCubes) {
-        cube.update([]);
-      }
-      for (let cube of labeledCubes) {
-        cube.update(labeledCubes);
-      }
+      for (let cube of ghostCubes) cube.update([]);
+      for (let cube of labeledCubes) cube.update(labeledCubes);
       requestAnimationFrame(animate);
     }
-
     animate();
 
-    // Resize Handler
-    window.addEventListener('resize', () => {
+    // HARD RESIZE HANDLER
+    // If screen rotates or address bar moves, pull everything back inside
+    window.visualViewport.addEventListener('resize', () => {
+      const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
-        cube.x = Math.min(cube.x, window.innerWidth - cube.size);
-        cube.y = Math.min(cube.y, window.innerHeight - cube.size);
+        cube.x = Math.min(cube.x, dims.width - cube.size);
+        cube.y = Math.min(cube.y, dims.height - cube.size);
       });
     });
   </script>
