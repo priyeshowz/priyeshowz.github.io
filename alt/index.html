@@ -22,11 +22,11 @@
       background: black;
     }
 
-    .cube {
+    /* Common styles for both cube types */
+    .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
       cursor: pointer;
-      mix-blend-mode: difference;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -35,6 +35,14 @@
       text-transform: lowercase;
       letter-spacing: 0.02em;
       user-select: none;
+      text-decoration: none; /* For <a> tags */
+      /* Will-change hints to browser to prep for GPU animation */
+      will-change: transform; 
+    }
+
+    .cube {
+      mix-blend-mode: difference;
+      z-index: 5;
     }
 
     .cube:hover {
@@ -43,21 +51,11 @@
     }
 
     .ghost-cube {
-      position: absolute;
-      border-radius: 6px;
       background: #333;
       opacity: 0.4;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      color: white;
-      text-transform: lowercase;
-      letter-spacing: 0.02em;
-      user-select: none;
       font-size: 20px;
-      transition: all 0.3s;
+      transition: opacity 0.3s, box-shadow 0.3s, background-color 0.3s;
+      z-index: 1;
     }
 
     .ghost-cube:hover {
@@ -69,6 +67,7 @@
       opacity: 0.8;
       background: #ff0066;
       box-shadow: 0 0 20px #ff0066;
+      z-index: 50;
     }
 
     .signature {
@@ -84,9 +83,10 @@
       color: white;
     }
 
+    /* Hidden player container */
     #bgPlayer {
       position: fixed;
-      bottom: -500px;
+      bottom: -500px; /* Keep offscreen but technically visible to DOM */
       left: 0;
       width: 1px;
       height: 1px;
@@ -103,10 +103,11 @@
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 12px;
-      z-index: 10;
+      z-index: 999;
       display: none;
       cursor: pointer;
       mix-blend-mode: difference;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .music-control.active {
@@ -115,6 +116,7 @@
 
     .music-control:hover {
       background: rgba(255, 0, 102, 0.8);
+      border-color: #ff0066;
     }
   </style>
 </head>
@@ -127,7 +129,46 @@
   <div id="bgPlayer"></div>
 
   <script>
-    // LOUD BACKGROUND
+    /**
+     * YOUTUBE IFRAME API SETUP
+     * Loads the player logic asynchronously to prevent page blocking.
+     */
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var player;
+    // This function is called automatically by YouTube API once ready
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('bgPlayer', {
+        height: '100%',
+        width: '100%',
+        videoId: '', // Initialize empty
+        playerVars: {
+          'playsinline': 1,
+          'controls': 0,
+          'disablekb': 1,
+          'fs': 0,
+          'rel': 0,
+          'autoplay': 1 // Enable autoplay so loadVideoById starts immediately
+        },
+        events: {
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerStateChange(event) {
+      // 0 = YT.PlayerState.ENDED
+      if (event.data === 0) {
+         resetMusicUI();
+      }
+    }
+
+    /**
+     * VISUALS & CONFIG
+     */
     const bgColors = [
       "#ff005d", "#00ffd5", "#ffe600",
       "#7b00ff", "#00ff44", "#ff7a00"
@@ -135,7 +176,6 @@
     document.body.style.background =
       bgColors[Math.floor(Math.random() * bgColors.length)];
 
-    // CUBE LINKS - All 6 unique ones
     const links = [
       { url: "https://priyeshranjan.com", label: "home" },
       { url: "https://priyeshowz.substack.com", label: "blog" },
@@ -145,7 +185,6 @@
       { url: "https://x.com/priyeshowz", label: "x" }
     ];
 
-    // GHOST CUBE LINKS (your songs with timestamps!)
     const ghostLinks = [
       { videoId: "gt_Oe2yGE4o", start: 25, label: "♪" },
       { videoId: "Y1-Qymcppps", start: 6, label: "♪" },
@@ -156,58 +195,60 @@
       { videoId: "2L1h4-EiTzM", start: 36, label: "♪" }
     ];
 
-    let currentPlayer = null;
     let currentPlayingCube = null;
     let isPlaying = false;
 
+    /**
+     * AUDIO CONTROL LOGIC
+     */
     function playVideo(videoId, start, cubeElement) {
-      const playerContainer = document.getElementById('bgPlayer');
+      // Guard clause: if API isn't ready yet, do nothing
+      if (!player || typeof player.loadVideoById !== 'function') return;
+
       const musicControl = document.getElementById('musicControl');
       
-      // Remove playing class from previous cube
+      // Visual feedback reset
       if (currentPlayingCube) {
         currentPlayingCube.classList.remove('playing');
       }
       
-      // Add playing class to clicked cube
+      // Highlight new cube
       cubeElement.classList.add('playing');
       currentPlayingCube = cubeElement;
       
-      // Create new iframe with start time
-      playerContainer.innerHTML = `
-        <iframe 
-          id="ytPlayer"
-          width="560" 
-          height="315" 
-          src="https://www.youtube.com/embed/${videoId}?autoplay=1&start=${start}&controls=0" 
-          frameborder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowfullscreen>
-        </iframe>
-      `;
+      // Instant switch using API
+      player.loadVideoById({
+        videoId: videoId,
+        startSeconds: start
+      });
       
       isPlaying = true;
       musicControl.classList.add('active');
       musicControl.textContent = '⏸ pause';
     }
 
-    function toggleMusic() {
-      const playerContainer = document.getElementById('bgPlayer');
+    function resetMusicUI() {
       const musicControl = document.getElementById('musicControl');
+      if (currentPlayingCube) {
+        currentPlayingCube.classList.remove('playing');
+        currentPlayingCube = null;
+      }
+      isPlaying = false;
+      musicControl.classList.remove('active');
+    }
+
+    function toggleMusic() {
+      if (!player) return;
       
       if (isPlaying) {
-        // Stop music
-        playerContainer.innerHTML = '';
-        if (currentPlayingCube) {
-          currentPlayingCube.classList.remove('playing');
-        }
-        isPlaying = false;
-        musicControl.textContent = '▶ play';
-      } else {
-        musicControl.classList.remove('active');
+        player.stopVideo();
+        resetMusicUI();
       }
     }
 
+    /**
+     * PHYSICS & ANIMATION
+     */
     function randomColor() {
       return `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
     }
@@ -222,34 +263,45 @@
         this.isGhost = isGhost;
         this.ghostLink = ghostLink;
         this.size = 80;
+        
+        // Initial Position
         this.x = Math.random() * (window.innerWidth - this.size);
         this.y = Math.random() * (window.innerHeight - this.size);
+        
+        // Velocity
         this.vx = randomRange(-2, 2);
         this.vy = randomRange(-2, 2);
+        
+        // Rotation
         this.rotation = Math.random() * 360;
         this.rotationSpeed = randomRange(-3, 3);
         
-        this.element = document.createElement("div");
-        
+        // DOM Element Creation
         if (isGhost) {
+          this.element = document.createElement("div");
           this.element.className = "ghost-cube";
           this.element.textContent = ghostLink.label;
           this.element.onclick = () => {
             playVideo(ghostLink.videoId, ghostLink.start, this.element);
           };
         } else {
+          // Optimized: Use anchor tag for correct semantic HTML
+          this.element = document.createElement("a");
           this.element.className = "cube";
+          this.element.href = link.url;
+          this.element.target = "_blank";
+          this.element.rel = "noopener noreferrer";
           this.element.style.background = randomColor();
           this.element.style.fontSize = "14px";
           this.element.textContent = link.label;
-          
-          this.element.onclick = () => {
-            window.location.href = link.url;
-          };
         }
         
         this.element.style.width = this.size + "px";
         this.element.style.height = this.size + "px";
+        
+        // Initial placement
+        this.element.style.transform = 
+          `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
         
         document.body.appendChild(this.element);
       }
@@ -260,7 +312,7 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // Bounce off walls
+        // Wall Collision
         if (this.x <= 0 || this.x + this.size >= window.innerWidth) {
           this.vx *= -1;
           this.x = Math.max(0, Math.min(this.x, window.innerWidth - this.size));
@@ -270,7 +322,7 @@
           this.y = Math.max(0, Math.min(this.y, window.innerHeight - this.size));
         }
 
-        // Only do collision detection for labeled cubes (not ghost cubes)
+        // Cube-to-Cube Collision (only for labeled cubes)
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
@@ -278,10 +330,10 @@
             const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
             const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = this.size;
+            const minDistance = this.size; // Simple box collision approximation
 
             if (distance < minDistance) {
-              // Collision! Swap velocities with some randomness
+              // Swap velocities with slight noise
               const tempVx = this.vx;
               const tempVy = this.vy;
               this.vx = other.vx + randomRange(-0.5, 0.5);
@@ -289,7 +341,7 @@
               other.vx = tempVx + randomRange(-0.5, 0.5);
               other.vy = tempVy + randomRange(-0.5, 0.5);
 
-              // Push apart
+              // Separate to prevent sticking
               const angle = Math.atan2(dy, dx);
               const overlap = minDistance - distance;
               this.x += Math.cos(angle) * overlap / 2;
@@ -300,35 +352,34 @@
           }
         }
 
-        // Update DOM
-        this.element.style.left = this.x + "px";
-        this.element.style.top = this.y + "px";
-        this.element.style.transform = `rotate(${this.rotation}deg)`;
+        // Render using GPU
+        this.element.style.transform = 
+          `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
       }
     }
 
-    // Create all cubes
+    /**
+     * INITIALIZATION
+     */
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Create 5-6 ghost cubes first (background layer)
-    const ghostCount = 5 + Math.floor(Math.random() * 2); // 5 or 6
+    // Create Ghost Cubes (Background)
+    const ghostCount = 5 + Math.floor(Math.random() * 2);
     for (let i = 0; i < ghostCount; i++) {
       ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
     }
     
-    // Create 6 labeled cubes (foreground layer)
+    // Create Link Cubes (Foreground)
     for (let i = 0; i < links.length; i++) {
       labeledCubes.push(new Cube(links[i], false));
     }
 
-    // Animation loop
+    // Animation Loop
     function animate() {
-      // Update ghost cubes (pass empty array so they don't collide)
       for (let cube of ghostCubes) {
         cube.update([]);
       }
-      // Update labeled cubes (pass labeled cubes so they collide with each other)
       for (let cube of labeledCubes) {
         cube.update(labeledCubes);
       }
@@ -336,6 +387,14 @@
     }
 
     animate();
+
+    // Resize Handler
+    window.addEventListener('resize', () => {
+      [...ghostCubes, ...labeledCubes].forEach(cube => {
+        cube.x = Math.min(cube.x, window.innerWidth - cube.size);
+        cube.y = Math.min(cube.y, window.innerHeight - cube.size);
+      });
+    });
   </script>
 
 </body>
