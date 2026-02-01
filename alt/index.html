@@ -10,22 +10,21 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      /* Use dynamic viewport height to account for mobile address bars */
       height: 100dvh; 
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: black; /* Fallback */
+      background: black;
     }
 
     body {
-      position: fixed; /* Locks the body in place on iOS/Android */
+      position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
     }
 
-    /* Common styles */
+    /* --- CUBES --- */
     .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
@@ -40,7 +39,7 @@
       user-select: none;
       text-decoration: none;
       will-change: transform;
-      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
+      -webkit-tap-highlight-color: transparent;
     }
 
     .cube {
@@ -63,6 +62,7 @@
       z-index: 50;
     }
 
+    /* --- UI ELEMENTS --- */
     .signature {
       position: fixed;
       bottom: 16px;
@@ -101,6 +101,10 @@
 
     .music-control.active {
       display: block;
+    }
+
+    .music-control:hover {
+      background: rgba(255, 0, 102, 0.8);
     }
   </style>
 </head>
@@ -160,7 +164,6 @@
     let isPlaying = false;
 
     // --- VIEWPORT HELPER ---
-    // This gets the REAL visible size, excluding address bars
     function getDimensions() {
       if (window.visualViewport) {
         return {
@@ -183,7 +186,7 @@
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏹️ stop';
+      musicControl.textContent = '⏸ pause';
     }
 
     function resetMusicUI() {
@@ -253,12 +256,11 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // BOUNDARY CHECKS - WITH CLAMPING
         if (this.x <= 0) {
-          this.vx = Math.abs(this.vx); // Force positive velocity
+          this.vx = Math.abs(this.vx); 
           this.x = 0;
         } else if (this.x >= maxX) {
-          this.vx = -Math.abs(this.vx); // Force negative velocity
+          this.vx = -Math.abs(this.vx); 
           this.x = maxX;
         }
 
@@ -270,7 +272,6 @@
           this.y = maxY;
         }
 
-        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
@@ -319,7 +320,6 @@
     }
     animate();
 
-    // HARD RESIZE HANDLER
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
@@ -330,19 +330,17 @@
   </script>
 
   <script>
-    // DETECT INSTAGRAM / FACEBOOK / LINKEDIN
+    // Detect In-App Browsers
     var ua = navigator.userAgent || navigator.vendor || window.opera;
-    // Simple check for common in-app browsers that break audio/physics
     var isInstagram = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
 
     if (isInstagram) {
-      // Create the Escape Hatch Overlay
       var escapeDiv = document.createElement('div');
       escapeDiv.style.cssText = `
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
         background: black;
-        color: #ff005d;
+        color: white;
         z-index: 10000;
         display: flex;
         flex-direction: column;
@@ -353,32 +351,21 @@
         padding: 20px;
       `;
 
-      var msg = document.createElement('h1');
-      msg.innerText = "INSTAGRAM KILLED THE AUDIO";
-      msg.style.cssText = "font-size: 24px; margin-bottom: 20px; text-transform: uppercase; font-weight: bold;";
+      var msg = document.createElement('p');
+      msg.innerText = "audio requires external browser";
+      msg.style.cssText = "font-size: 14px; margin-bottom: 30px; opacity: 0.8; letter-spacing: 0.05em;";
       
-      var sub = document.createElement('p');
-      sub.innerText = "This site requires a real browser.";
-      sub.style.cssText = "color: white; margin-bottom: 40px; font-size: 14px;";
-
       var btn = document.createElement('div');
       btn.innerText = "● tap dots above -> open in browser";
       btn.style.cssText = `
-        border: 1px solid white;
-        padding: 15px 20px;
-        font-size: 14px;
-        font-weight: bold;
-        animation: blink 1s infinite;
-        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 12px 18px;
+        font-size: 12px;
+        opacity: 0.7;
+        border-radius: 4px;
       `;
 
-      // Add blink animation style
-      var styleSheet = document.createElement("style");
-      styleSheet.innerText = "@keyframes blink { 0% {opacity:1;} 50% {opacity:0.5;} 100% {opacity:1;} }";
-      document.head.appendChild(styleSheet);
-
       escapeDiv.appendChild(msg);
-      escapeDiv.appendChild(sub);
       escapeDiv.appendChild(btn);
       document.body.appendChild(escapeDiv);
     }
