@@ -3,29 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <title>field</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
   <style>
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
-      /* Use dynamic viewport height to account for mobile address bars */
-      height: 100dvh; 
+      height: 100dvh;
       overflow: hidden;
+      /* REVERTED: Back to original system font */
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: black; /* Fallback */
+      background: black;
     }
 
     body {
-      position: fixed; /* Locks the body in place on iOS/Android */
+      position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
     }
 
-    /* Common styles */
+    /* --- CUBES --- */
     .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
@@ -39,8 +39,12 @@
       letter-spacing: 0.02em;
       user-select: none;
       text-decoration: none;
+      
+      /* GPU & Touch Optimizations */
       will-change: transform;
-      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
+      transform: translateZ(0);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .cube {
@@ -48,12 +52,22 @@
       z-index: 5;
     }
 
+    .cube:hover {
+      transform: scale(1.1) translateZ(0);
+      z-index: 100;
+    }
+
     .ghost-cube {
       background: #333;
       opacity: 0.4;
       font-size: 20px;
-      transition: opacity 0.3s;
+      transition: all 0.3s;
       z-index: 1;
+    }
+
+    .ghost-cube:hover {
+      opacity: 0.6;
+      transform: scale(1.05) translateZ(0);
     }
 
     .ghost-cube.playing {
@@ -63,10 +77,12 @@
       z-index: 50;
     }
 
+    /* --- UI ELEMENTS --- */
     .signature {
       position: fixed;
-      bottom: 16px;
-      right: 20px;
+      /* Safety margin for Instagram/iOS */
+      bottom: max(30px, env(safe-area-inset-bottom) + 10px);
+      right: 25px;
       font-size: 16px;
       letter-spacing: 0.05em;
       opacity: 0.7;
@@ -76,31 +92,39 @@
       color: white;
     }
 
-    #bgPlayer {
-      position: absolute;
-      visibility: hidden;
-      width: 1px; 
-      height: 1px;
-    }
-
+    /* REVERTED: Original Box Style Button */
     .music-control {
       position: fixed;
-      bottom: 16px;
-      left: 20px;
+      /* Safety margin for Instagram/iOS */
+      bottom: max(30px, env(safe-area-inset-bottom) + 10px);
+      left: 25px;
+      
       background: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 12px;
+      border: none; /* Reset button default */
+      
       z-index: 999;
       display: none;
       cursor: pointer;
       mix-blend-mode: difference;
-      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .music-control.active {
       display: block;
+    }
+
+    .music-control:hover {
+      background: rgba(255, 0, 102, 0.8);
+    }
+
+    #bgPlayer {
+      position: absolute;
+      visibility: hidden;
+      width: 1px; 
+      height: 1px;
     }
   </style>
 </head>
@@ -108,7 +132,7 @@
 <body>
 
   <div class="signature">priyesh</div>
-  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ pause</div>
+  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏹ stop</div>
   <div id="bgPlayer"></div>
 
   <script>
@@ -133,7 +157,7 @@
       if (event.data === 0) resetMusicUI();
     }
 
-    // --- LOGIC ---
+    // --- CONFIG ---
     const bgColors = ["#ff005d", "#00ffd5", "#ffe600", "#7b00ff", "#00ff44", "#ff7a00"];
     document.body.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
 
@@ -160,30 +184,29 @@
     let isPlaying = false;
 
     // --- VIEWPORT HELPER ---
-    // This gets the REAL visible size, excluding address bars
     function getDimensions() {
       if (window.visualViewport) {
-        return {
-          width: window.visualViewport.width,
-          height: window.visualViewport.height
-        };
+        return { width: window.visualViewport.width, height: window.visualViewport.height };
       }
-      return {
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
+      return { width: window.innerWidth, height: window.innerHeight };
     }
 
+    // --- AUDIO LOGIC ---
     function playVideo(videoId, start, cubeElement) {
       if (!player || typeof player.loadVideoById !== 'function') return;
+      
       const musicControl = document.getElementById('musicControl');
+      
       if (currentPlayingCube) currentPlayingCube.classList.remove('playing');
+      
       cubeElement.classList.add('playing');
       currentPlayingCube = cubeElement;
+      
       player.loadVideoById({ videoId: videoId, startSeconds: start });
+      
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏸ pause';
+      musicControl.textContent = '⏹ stop';
     }
 
     function resetMusicUI() {
@@ -206,6 +229,11 @@
 
     function randomRange(min, max) { return min + Math.random() * (max - min); }
 
+    function randomColor() {
+      return `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
+    }
+
+    // --- CUBE CLASS ---
     class Cube {
       constructor(link, isGhost = false, ghostLink = null) {
         this.link = link;
@@ -214,7 +242,6 @@
         this.size = 80;
         
         const dims = getDimensions();
-        // Spawn well within bounds
         this.x = randomRange(10, dims.width - this.size - 10);
         this.y = randomRange(10, dims.height - this.size - 10);
         
@@ -234,7 +261,7 @@
           this.element.href = link.url;
           this.element.target = "_blank";
           this.element.rel = "noopener noreferrer";
-          this.element.style.background = `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
+          this.element.style.background = randomColor();
           this.element.style.fontSize = "14px";
           this.element.textContent = link.label;
         }
@@ -253,40 +280,24 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // BOUNDARY CHECKS - WITH CLAMPING
-        // We forcibly reset position (this.x = ...) to ensure it never stays out
-        if (this.x <= 0) {
-          this.vx = Math.abs(this.vx); // Force positive velocity
-          this.x = 0;
-        } else if (this.x >= maxX) {
-          this.vx = -Math.abs(this.vx); // Force negative velocity
-          this.x = maxX;
-        }
+        if (this.x <= 0) { this.vx = Math.abs(this.vx); this.x = 0; }
+        else if (this.x >= maxX) { this.vx = -Math.abs(this.vx); this.x = maxX; }
 
-        if (this.y <= 0) {
-          this.vy = Math.abs(this.vy);
-          this.y = 0;
-        } else if (this.y >= maxY) {
-          this.vy = -Math.abs(this.vy);
-          this.y = maxY;
-        }
+        if (this.y <= 0) { this.vy = Math.abs(this.vy); this.y = 0; }
+        else if (this.y >= maxY) { this.vy = -Math.abs(this.vy); this.y = maxY; }
 
-        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
             
-            const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
-            const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
-            const distSq = dx * dx + dy * dy;
+            const dx = (this.x + this.size/2) - (other.x + other.size/2);
+            const dy = (this.y + this.size/2) - (other.y + other.size/2);
+            const distSq = dx*dx + dy*dy;
             const minDist = this.size; 
 
-            // Optimization: check squared distance to avoid Math.sqrt every frame
             if (distSq < minDist * minDist) {
               const distance = Math.sqrt(distSq);
-              
-              const tempVx = this.vx;
-              const tempVy = this.vy;
+              const tempVx = this.vx; const tempVy = this.vy;
               this.vx = other.vx + randomRange(-0.5, 0.5);
               this.vy = other.vy + randomRange(-0.5, 0.5);
               other.vx = tempVx + randomRange(-0.5, 0.5);
@@ -306,11 +317,12 @@
       }
     }
 
+    // --- INIT ---
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Init
-    const ghostCount = 5 + Math.floor(Math.random() * 2);
+    // Ghost count restoration
+    const ghostCount = 5 + Math.floor(Math.random() * 2); 
     for (let i = 0; i < ghostCount; i++) ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
     for (let i = 0; i < links.length; i++) labeledCubes.push(new Cube(links[i], false));
 
@@ -321,8 +333,6 @@
     }
     animate();
 
-    // HARD RESIZE HANDLER
-    // If screen rotates or address bar moves, pull everything back inside
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
