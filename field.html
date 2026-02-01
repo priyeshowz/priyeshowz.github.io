@@ -30,6 +30,18 @@
       cursor: pointer;
       animation: fly linear infinite;
       mix-blend-mode: difference;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      text-transform: lowercase;
+      letter-spacing: 0.02em;
+    }
+
+    .cube:hover {
+      animation-play-state: paused;
     }
 
     @keyframes fly {
@@ -40,25 +52,10 @@
         transform: translate(var(--dx), var(--dy)) rotate(720deg);
       }
     }
-
-    .message {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
-      opacity: 0.85;
-      z-index: 10;
-      pointer-events: none;
-      mix-blend-mode: difference;
-    }
   </style>
 </head>
 
 <body>
-
-  <div class="message">you were not supposed to stay long</div>
 
   <script>
     // LOUD BACKGROUND
@@ -71,10 +68,12 @@
 
     // CUBE LINKS
     const links = [
-      { url: "/", label: "home" },
-      { url: "https://priyeshowz.substack.com", label: "writing" },
-      { url: "https://www.goodreads.com", label: "reading" },
-      { url: "https://letterboxd.com", label: "movies" }
+      { url: "https://priyeshranjan.com", label: "home" },
+      { url: "https://priyeshowz.substack.com", label: "blog" },
+      { url: "https://www.goodreads.com/priyeshowz", label: "reads" },
+      { url: "https://letterboxd.com/priyeshowz", label: "boxd" },
+      { url: "https://instagram.com/priyeshowz", label: "insta" },
+      { url: "https://x.com/priyeshowz", label: "x" }
     ];
 
     function randomColor() {
@@ -85,6 +84,7 @@
       const cube = document.createElement("div");
       cube.className = "cube";
       cube.style.background = randomColor();
+      cube.textContent = link.label;
 
       const size = 80;
       cube.style.left = Math.random() * (window.innerWidth - size) + "px";
