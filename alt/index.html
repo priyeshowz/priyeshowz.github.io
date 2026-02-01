@@ -10,36 +10,37 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100dvh; /* Dynamic viewport height for mobile */
+      /* Use dynamic viewport height to account for mobile address bars */
+      height: 100dvh; 
       overflow: hidden;
-      /* CHANGE 1: Monospace font for "raw data" aesthetic */
-      font-family: "Courier New", Courier, monospace;
-      font-weight: bold;
-      background: black;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: black; /* Fallback */
     }
 
     body {
-      position: fixed;
+      position: fixed; /* Locks the body in place on iOS/Android */
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
     }
 
-    /* CUBE STYLES */
+    /* Common styles */
     .cube, .ghost-cube {
       position: absolute;
-      border-radius: 4px; /* Slightly sharper corners */
+      border-radius: 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: 600;
       color: white;
       text-transform: lowercase;
+      letter-spacing: 0.02em;
       user-select: none;
       text-decoration: none;
       will-change: transform;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
     }
 
     .cube {
@@ -56,18 +57,18 @@
     }
 
     .ghost-cube.playing {
-      opacity: 0.9;
+      opacity: 0.8;
       background: #ff0066;
       box-shadow: 0 0 20px #ff0066;
       z-index: 50;
     }
 
-    /* TEXT ELEMENTS */
     .signature {
       position: fixed;
       bottom: 16px;
       right: 20px;
-      font-size: 14px;
+      font-size: 16px;
+      letter-spacing: 0.05em;
       opacity: 0.7;
       z-index: 10;
       pointer-events: none;
@@ -75,44 +76,31 @@
       color: white;
     }
 
-    /* CHANGE 2: Minimalist Music Control */
-    .music-control {
-      position: fixed;
-      bottom: 16px;
-      left: 20px;
-      
-      /* Stripped down style */
-      background: transparent;
-      border: none;
-      color: white;
-      
-      font-size: 14px;
-      font-family: inherit; /* Inherit monospace */
-      font-weight: bold;
-      
-      z-index: 999;
-      display: none; /* Hidden by default */
-      cursor: pointer;
-      mix-blend-mode: difference;
-      opacity: 0.7;
-      text-decoration: underline;
-    }
-
-    .music-control.active {
-      display: block;
-    }
-
-    .music-control:hover {
-      opacity: 1.0;
-      text-decoration: none;
-    }
-
-    /* Hidden Player */
     #bgPlayer {
       position: absolute;
       visibility: hidden;
       width: 1px; 
       height: 1px;
+    }
+
+    .music-control {
+      position: fixed;
+      bottom: 16px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 999;
+      display: none;
+      cursor: pointer;
+      mix-blend-mode: difference;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .music-control.active {
+      display: block;
     }
   </style>
 </head>
@@ -120,11 +108,11 @@
 <body>
 
   <div class="signature">priyesh</div>
-  <button class="music-control" id="musicControl" onclick="toggleMusic()">pause</button>
+  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ pause</div>
   <div id="bgPlayer"></div>
 
   <script>
-    // --- YOUTUBE API SETUP ---
+    // --- YOUTUBE API ---
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -142,10 +130,10 @@
     }
 
     function onPlayerStateChange(event) {
-      if (event.data === 0) resetMusicUI(); // 0 is ENDED
+      if (event.data === 0) resetMusicUI();
     }
 
-    // --- CONFIG ---
+    // --- LOGIC ---
     const bgColors = ["#ff005d", "#00ffd5", "#ffe600", "#7b00ff", "#00ff44", "#ff7a00"];
     document.body.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
 
@@ -172,29 +160,30 @@
     let isPlaying = false;
 
     // --- VIEWPORT HELPER ---
+    // This gets the REAL visible size, excluding address bars
     function getDimensions() {
       if (window.visualViewport) {
-        return { width: window.visualViewport.width, height: window.visualViewport.height };
+        return {
+          width: window.visualViewport.width,
+          height: window.visualViewport.height
+        };
       }
-      return { width: window.innerWidth, height: window.innerHeight };
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
     }
 
-    // --- AUDIO LOGIC ---
     function playVideo(videoId, start, cubeElement) {
       if (!player || typeof player.loadVideoById !== 'function') return;
-      
       const musicControl = document.getElementById('musicControl');
-      
       if (currentPlayingCube) currentPlayingCube.classList.remove('playing');
-      
       cubeElement.classList.add('playing');
       currentPlayingCube = cubeElement;
-      
       player.loadVideoById({ videoId: videoId, startSeconds: start });
-      
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = 'pause';
+      musicControl.textContent = '⏸ pause';
     }
 
     function resetMusicUI() {
@@ -217,16 +206,15 @@
 
     function randomRange(min, max) { return min + Math.random() * (max - min); }
 
-    // --- CUBE CLASS ---
     class Cube {
       constructor(link, isGhost = false, ghostLink = null) {
         this.link = link;
         this.isGhost = isGhost;
         this.ghostLink = ghostLink;
-        this.size = 80; // Fixed size
+        this.size = 80;
         
         const dims = getDimensions();
-        // Safe spawn area
+        // Spawn well within bounds
         this.x = randomRange(10, dims.width - this.size - 10);
         this.y = randomRange(10, dims.height - this.size - 10);
         
@@ -265,34 +253,45 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // Hard Clamp to Screen
-        if (this.x <= 0) { this.vx = Math.abs(this.vx); this.x = 0; }
-        else if (this.x >= maxX) { this.vx = -Math.abs(this.vx); this.x = maxX; }
+        // BOUNDARY CHECKS - WITH CLAMPING
+        // We forcibly reset position (this.x = ...) to ensure it never stays out
+        if (this.x <= 0) {
+          this.vx = Math.abs(this.vx); // Force positive velocity
+          this.x = 0;
+        } else if (this.x >= maxX) {
+          this.vx = -Math.abs(this.vx); // Force negative velocity
+          this.x = maxX;
+        }
 
-        if (this.y <= 0) { this.vy = Math.abs(this.vy); this.y = 0; }
-        else if (this.y >= maxY) { this.vy = -Math.abs(this.vy); this.y = maxY; }
+        if (this.y <= 0) {
+          this.vy = Math.abs(this.vy);
+          this.y = 0;
+        } else if (this.y >= maxY) {
+          this.vy = -Math.abs(this.vy);
+          this.y = maxY;
+        }
 
-        // Collision
+        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
             
-            const dx = (this.x + this.size/2) - (other.x + other.size/2);
-            const dy = (this.y + this.size/2) - (other.y + other.size/2);
-            const distSq = dx*dx + dy*dy;
+            const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
+            const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
+            const distSq = dx * dx + dy * dy;
             const minDist = this.size; 
 
+            // Optimization: check squared distance to avoid Math.sqrt every frame
             if (distSq < minDist * minDist) {
               const distance = Math.sqrt(distSq);
               
-              // Physics Swap
-              const tempVx = this.vx; const tempVy = this.vy;
+              const tempVx = this.vx;
+              const tempVy = this.vy;
               this.vx = other.vx + randomRange(-0.5, 0.5);
               this.vy = other.vy + randomRange(-0.5, 0.5);
               other.vx = tempVx + randomRange(-0.5, 0.5);
               other.vy = tempVy + randomRange(-0.5, 0.5);
 
-              // Push Apart
               const angle = Math.atan2(dy, dx);
               const overlap = minDist - distance;
               this.x += Math.cos(angle) * overlap / 2;
@@ -307,10 +306,10 @@
       }
     }
 
-    // --- INIT ---
     const ghostCubes = [];
     const labeledCubes = [];
     
+    // Init
     const ghostCount = 5 + Math.floor(Math.random() * 2);
     for (let i = 0; i < ghostCount; i++) ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
     for (let i = 0; i < links.length; i++) labeledCubes.push(new Cube(links[i], false));
@@ -322,7 +321,8 @@
     }
     animate();
 
-    // --- RESIZE HANDLER ---
+    // HARD RESIZE HANDLER
+    // If screen rotates or address bar moves, pull everything back inside
     window.visualViewport.addEventListener('resize', () => {
       const dims = getDimensions();
       [...ghostCubes, ...labeledCubes].forEach(cube => {
