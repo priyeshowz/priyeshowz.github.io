@@ -108,7 +108,7 @@
 <body>
 
   <div class="signature">priyesh</div>
-  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ pause</div>
+  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ </div>
   <div id="bgPlayer"></div>
 
   <script>
@@ -216,7 +216,7 @@
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏸ pause';
+      musicControl.textContent = '⏸ ';
     }
 
     function resetMusicUI() {
