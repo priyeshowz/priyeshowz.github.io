@@ -10,15 +10,14 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      /* Use dynamic viewport height to account for mobile address bars */
       height: 100dvh; 
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: black; /* Fallback */
+      background: black; 
     }
 
     body {
-      position: fixed; /* Locks the body in place on iOS/Android */
+      position: fixed; 
       top: 0;
       left: 0;
       right: 0;
@@ -40,7 +39,7 @@
       user-select: none;
       text-decoration: none;
       will-change: transform;
-      -webkit-tap-highlight-color: transparent; /* Removes blue tap box on mobile */
+      -webkit-tap-highlight-color: transparent; 
     }
 
     .cube {
@@ -50,7 +49,8 @@
 
     .ghost-cube {
       background: #333;
-      opacity: 0.4;
+      /* Reduced opacity by ~30% from original 0.4 -> 0.28 */
+      opacity: 0.28;
       font-size: 16px;
       transition: opacity 0.3s;
       z-index: 1;
@@ -146,7 +146,7 @@
       { url: "https://x.com/priyeshowz", label: "x" }
     ];
 
-    // ALL SONGS - Ghost cubes will randomly pick from this list
+    // ALL SONGS
     const allGhostLinks = [
       { videoId: "gt_Oe2yGE4o", start: 25, label: "♪" },
       { videoId: "Y1-Qymcppps", start: 6, label: "♪" },
@@ -180,20 +180,20 @@
       { videoId: "10z6-vQm23w", start: 17, label: "♪" }
     ];
 
-    // Randomly select 7-8 songs for this session
+    // Randomly select songs
     function getRandomSongs(count) {
       const shuffled = [...allGhostLinks].sort(() => Math.random() - 0.5);
       return shuffled.slice(0, count);
     }
 
-    const ghostCount = 7 + Math.floor(Math.random() * 2); // 7 or 8
+    // UPDATED: Fixed count to 10
+    const ghostCount = 10;
     const ghostLinks = getRandomSongs(ghostCount);
 
     let currentPlayingCube = null;
     let isPlaying = false;
 
     // --- VIEWPORT HELPER ---
-    // This gets the REAL visible size, excluding address bars
     function getDimensions() {
       if (window.visualViewport) {
         return {
@@ -261,7 +261,8 @@
         if (isGhost) {
           this.element = document.createElement("div");
           this.element.className = "ghost-cube";
-          this.element.textContent = ghostLink.label;
+          // UPDATED: No text content for ghost cubes
+          this.element.textContent = ""; 
           this.element.onclick = () => playVideo(ghostLink.videoId, ghostLink.start, this.element);
         } else {
           this.element = document.createElement("a");
@@ -288,13 +289,12 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // BOUNDARY CHECKS - WITH CLAMPING
-        // We forcibly reset position (this.x = ...) to ensure it never stays out
+        // BOUNDARY CHECKS
         if (this.x <= 0) {
-          this.vx = Math.abs(this.vx); // Force positive velocity
+          this.vx = Math.abs(this.vx); 
           this.x = 0;
         } else if (this.x >= maxX) {
-          this.vx = -Math.abs(this.vx); // Force negative velocity
+          this.vx = -Math.abs(this.vx); 
           this.x = maxX;
         }
 
@@ -316,7 +316,6 @@
             const distSq = dx * dx + dy * dy;
             const minDist = this.size; 
 
-            // Optimization: check squared distance to avoid Math.sqrt every frame
             if (distSq < minDist * minDist) {
               const distance = Math.sqrt(distSq);
               
@@ -344,12 +343,12 @@
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Init - Create ghost cubes with randomly selected songs
+    // Init Ghost Cubes
     for (let i = 0; i < ghostLinks.length; i++) {
       ghostCubes.push(new Cube(null, true, ghostLinks[i]));
     }
     
-    // Create labeled cubes
+    // Init Labeled Cubes
     for (let i = 0; i < links.length; i++) {
       labeledCubes.push(new Cube(links[i], false));
     }
@@ -361,15 +360,16 @@
     }
     animate();
 
-    // HARD RESIZE HANDLER
-    // If screen rotates or address bar moves, pull everything back inside
-    window.visualViewport.addEventListener('resize', () => {
-      const dims = getDimensions();
-      [...ghostCubes, ...labeledCubes].forEach(cube => {
-        cube.x = Math.min(cube.x, dims.width - cube.size);
-        cube.y = Math.min(cube.y, dims.height - cube.size);
+    // Resize Handler
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        const dims = getDimensions();
+        [...ghostCubes, ...labeledCubes].forEach(cube => {
+          cube.x = Math.min(cube.x, dims.width - cube.size);
+          cube.y = Math.min(cube.y, dims.height - cube.size);
+        });
       });
-    });
+    }
   </script>
 
 </body>
