@@ -51,7 +51,7 @@
     .ghost-cube {
       background: #333;
       opacity: 0.4;
-      font-size: 20px;
+      font-size: 16px;
       transition: opacity 0.3s;
       z-index: 1;
     }
@@ -108,7 +108,7 @@
 <body>
 
   <div class="signature">priyesh</div>
-  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ </div>
+  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ pause</div>
   <div id="bgPlayer"></div>
 
   <script>
@@ -146,15 +146,48 @@
       { url: "https://x.com/priyeshowz", label: "x" }
     ];
 
-    const ghostLinks = [
+    // ALL SONGS - Ghost cubes will randomly pick from this list
+    const allGhostLinks = [
       { videoId: "gt_Oe2yGE4o", start: 25, label: "♪" },
       { videoId: "Y1-Qymcppps", start: 6, label: "♪" },
       { videoId: "9OUurVdRGsc", start: 56, label: "♪" },
       { videoId: "6q6GtPdVHL4", start: 28, label: "♪" },
       { videoId: "gG_dA32oH44", start: 36, label: "♪" },
       { videoId: "MxEjnYdfLXU", start: 0, label: "♪" },
-      { videoId: "2L1h4-EiTzM", start: 36, label: "♪" }
+      { videoId: "2L1h4-EiTzM", start: 36, label: "♪" },
+      { videoId: "o7fgFaXKVa0", start: 0, label: "♪" },
+      { videoId: "rOHTCzwsg1s", start: 66, label: "♪" },
+      { videoId: "H9NuWEeODew", start: 50, label: "♪" },
+      { videoId: "ebSRSyycPf0", start: 10, label: "♪" },
+      { videoId: "0_M2JX-Olv8", start: 10, label: "♪" },
+      { videoId: "dcYJg5gGHC0", start: 8, label: "♪" },
+      { videoId: "2L1h4-EiTzM", start: 2, label: "♪" },
+      { videoId: "cj84OtodGmA", start: 49, label: "♪" },
+      { videoId: "iX_TFkut1PM", start: 145, label: "♪" },
+      { videoId: "rlb3IZ94CwE", start: 43, label: "♪" },
+      { videoId: "jz-8_f6vG1M", start: 7, label: "♪" },
+      { videoId: "qdroHHheK2c", start: 47, label: "♪" },
+      { videoId: "HSkyD7lWxkY", start: 162, label: "♪" },
+      { videoId: "VOukslHFYC0", start: 13, label: "♪" },
+      { videoId: "SY1BL_JnzCo", start: 0, label: "♪" },
+      { videoId: "pKHbgyNb9PM", start: 88, label: "♪" },
+      { videoId: "ZK3tVnoYqHM", start: 40, label: "♪" },
+      { videoId: "N-TKOh0zsvU", start: 81, label: "♪" },
+      { videoId: "Y_V6y1ZCg_8", start: 0, label: "♪" },
+      { videoId: "Y_V6y1ZCg_8", start: 16, label: "♪" },
+      { videoId: "QAszapI0unE", start: 0, label: "♪" },
+      { videoId: "wC4wbI5HLxs", start: 4, label: "♪" },
+      { videoId: "10z6-vQm23w", start: 17, label: "♪" }
     ];
+
+    // Randomly select 7-8 songs for this session
+    function getRandomSongs(count) {
+      const shuffled = [...allGhostLinks].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
+    }
+
+    const ghostCount = 7 + Math.floor(Math.random() * 2); // 7 or 8
+    const ghostLinks = getRandomSongs(ghostCount);
 
     let currentPlayingCube = null;
     let isPlaying = false;
@@ -183,7 +216,7 @@
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
       musicControl.classList.add('active');
-      musicControl.textContent = '⏸ ';
+      musicControl.textContent = '⏸ pause';
     }
 
     function resetMusicUI() {
@@ -211,7 +244,9 @@
         this.link = link;
         this.isGhost = isGhost;
         this.ghostLink = ghostLink;
-        this.size = 80;
+        
+        // Ghost cubes are 70% size (56px), regular cubes are 80px
+        this.size = isGhost ? 56 : 80;
         
         const dims = getDimensions();
         // Spawn well within bounds
@@ -309,10 +344,15 @@
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Init
-    const ghostCount = 5 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < ghostCount; i++) ghostCubes.push(new Cube(null, true, ghostLinks[i % ghostLinks.length]));
-    for (let i = 0; i < links.length; i++) labeledCubes.push(new Cube(links[i], false));
+    // Init - Create ghost cubes with randomly selected songs
+    for (let i = 0; i < ghostLinks.length; i++) {
+      ghostCubes.push(new Cube(null, true, ghostLinks[i]));
+    }
+    
+    // Create labeled cubes
+    for (let i = 0; i < links.length; i++) {
+      labeledCubes.push(new Cube(links[i], false));
+    }
 
     function animate() {
       for (let cube of ghostCubes) cube.update([]);
