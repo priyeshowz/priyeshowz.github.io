@@ -42,14 +42,13 @@
     }
 
     .cube {
-      /* Removed mix-blend-mode to ensure text contrast is visible */
       z-index: 5;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
     .ghost-cube {
       background: #333;
-      color: transparent; /* Text hidden */
+      color: transparent;
       opacity: 0.28;
       font-size: 16px;
       transition: opacity 0.3s, background 0.3s, box-shadow 0.3s;
@@ -59,20 +58,28 @@
     .ghost-cube.playing {
       opacity: 0.9;
       z-index: 50;
-      /* Background and Shadow are now handled via inline JS for randomness */
     }
 
+    /* UPDATED SIGNATURE STYLES */
     .signature {
       position: fixed;
       bottom: 16px;
       right: 20px;
+      
+      /* MATCHING CUBE FONT STYLES */
       font-size: 16px;
-      letter-spacing: 0.05em;
+      font-weight: 600;           /* Same weight as cubes */
+      text-transform: lowercase;  /* Lowercase like cubes */
+      letter-spacing: 0.02em;     /* Same spacing */
+      
       opacity: 0.7;
       z-index: 10;
-      pointer-events: none;
       mix-blend-mode: difference;
       color: white;
+      
+      /* LINK STYLES (Invisible) */
+      text-decoration: none;      /* No underline */
+      cursor: pointer;
     }
 
     #bgPlayer {
@@ -106,7 +113,8 @@
 
 <body>
 
-  <div class="signature">priyesh</div>
+  <a href="" class="signature">priyesh</a>
+  
   <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ </div>
   <div id="bgPlayer"></div>
 
@@ -192,12 +200,9 @@
 
     // --- COLOR & CONTRAST HELPER ---
     function getVibrantColor() {
-      // 1. Generate vibrant RGB
-      // To ensure vibrant neon colors: High Saturation, High Brightness.
-      // HSV to RGB conversion
       const h = Math.random(); 
-      const s = 0.6 + Math.random() * 0.4; // 60-100% Saturation
-      const v = 0.7 + Math.random() * 0.3; // 70-100% Brightness
+      const s = 0.6 + Math.random() * 0.4; 
+      const v = 0.7 + Math.random() * 0.3; 
 
       let r, g, b;
       let i = Math.floor(h * 6);
@@ -219,9 +224,6 @@
       const g255 = Math.floor(g * 255);
       const b255 = Math.floor(b * 255);
 
-      // 2. Calculate Contrast (YIQ)
-      // ((R*299)+(G*587)+(B*114))/1000
-      // If brightness > 128, use black text.
       const yiq = ((r255 * 299) + (g255 * 587) + (b255 * 114)) / 1000;
       const textColor = (yiq >= 140) ? '#000000' : '#ffffff';
 
@@ -248,17 +250,14 @@
       if (!player || typeof player.loadVideoById !== 'function') return;
       const musicControl = document.getElementById('musicControl');
       
-      // Reset previous
       if (currentPlayingCube) {
         currentPlayingCube.classList.remove('playing');
         currentPlayingCube.style.background = '';
         currentPlayingCube.style.boxShadow = '';
       }
 
-      // Activate new
       cubeElement.classList.add('playing');
       
-      // Random Neon Color for Playing State
       const playColor = getVibrantColor().bg;
       cubeElement.style.background = playColor;
       cubeElement.style.boxShadow = `0 0 25px ${playColor}`;
@@ -321,7 +320,6 @@
           this.element.target = "_blank";
           this.element.rel = "noopener noreferrer";
           
-          // GENERATE COLOR WITH CONTRAST
           const colorData = getVibrantColor();
           this.element.style.background = colorData.bg;
           this.element.style.color = colorData.text;
@@ -396,12 +394,10 @@
     const ghostCubes = [];
     const labeledCubes = [];
     
-    // Init Ghost Cubes
     for (let i = 0; i < ghostLinks.length; i++) {
       ghostCubes.push(new Cube(null, true, ghostLinks[i]));
     }
     
-    // Init Labeled Cubes
     for (let i = 0; i < links.length; i++) {
       labeledCubes.push(new Cube(links[i], false));
     }
