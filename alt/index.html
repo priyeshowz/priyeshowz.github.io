@@ -33,7 +33,6 @@
       align-items: center;
       justify-content: center;
       font-weight: 600;
-      color: white;
       text-transform: lowercase;
       letter-spacing: 0.02em;
       user-select: none;
@@ -43,24 +42,24 @@
     }
 
     .cube {
-      mix-blend-mode: difference;
+      /* Removed mix-blend-mode to ensure text contrast is visible */
       z-index: 5;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
     .ghost-cube {
       background: #333;
-      /* Reduced opacity by ~30% from original 0.4 -> 0.28 */
+      color: transparent; /* Text hidden */
       opacity: 0.28;
       font-size: 16px;
-      transition: opacity 0.3s;
+      transition: opacity 0.3s, background 0.3s, box-shadow 0.3s;
       z-index: 1;
     }
 
     .ghost-cube.playing {
-      opacity: 0.8;
-      background: #ff0066;
-      box-shadow: 0 0 20px #ff0066;
+      opacity: 0.9;
       z-index: 50;
+      /* Background and Shadow are now handled via inline JS for randomness */
     }
 
     .signature {
@@ -180,20 +179,58 @@
       { videoId: "10z6-vQm23w", start: 17, label: "♪" }
     ];
 
-    // Randomly select songs
     function getRandomSongs(count) {
       const shuffled = [...allGhostLinks].sort(() => Math.random() - 0.5);
       return shuffled.slice(0, count);
     }
 
-    // UPDATED: Fixed count to 10
     const ghostCount = 10;
     const ghostLinks = getRandomSongs(ghostCount);
 
     let currentPlayingCube = null;
     let isPlaying = false;
 
-    // --- VIEWPORT HELPER ---
+    // --- COLOR & CONTRAST HELPER ---
+    function getVibrantColor() {
+      // 1. Generate vibrant RGB
+      // To ensure vibrant neon colors: High Saturation, High Brightness.
+      // HSV to RGB conversion
+      const h = Math.random(); 
+      const s = 0.6 + Math.random() * 0.4; // 60-100% Saturation
+      const v = 0.7 + Math.random() * 0.3; // 70-100% Brightness
+
+      let r, g, b;
+      let i = Math.floor(h * 6);
+      let f = h * 6 - i;
+      let p = v * (1 - s);
+      let q = v * (1 - f * s);
+      let t = v * (1 - (1 - f) * s);
+
+      switch (i % 6) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+      }
+
+      const r255 = Math.floor(r * 255);
+      const g255 = Math.floor(g * 255);
+      const b255 = Math.floor(b * 255);
+
+      // 2. Calculate Contrast (YIQ)
+      // ((R*299)+(G*587)+(B*114))/1000
+      // If brightness > 128, use black text.
+      const yiq = ((r255 * 299) + (g255 * 587) + (b255 * 114)) / 1000;
+      const textColor = (yiq >= 140) ? '#000000' : '#ffffff';
+
+      return {
+        bg: `rgb(${r255},${g255},${b255})`,
+        text: textColor
+      };
+    }
+
     function getDimensions() {
       if (window.visualViewport) {
         return {
@@ -210,8 +247,22 @@
     function playVideo(videoId, start, cubeElement) {
       if (!player || typeof player.loadVideoById !== 'function') return;
       const musicControl = document.getElementById('musicControl');
-      if (currentPlayingCube) currentPlayingCube.classList.remove('playing');
+      
+      // Reset previous
+      if (currentPlayingCube) {
+        currentPlayingCube.classList.remove('playing');
+        currentPlayingCube.style.background = '';
+        currentPlayingCube.style.boxShadow = '';
+      }
+
+      // Activate new
       cubeElement.classList.add('playing');
+      
+      // Random Neon Color for Playing State
+      const playColor = getVibrantColor().bg;
+      cubeElement.style.background = playColor;
+      cubeElement.style.boxShadow = `0 0 25px ${playColor}`;
+
       currentPlayingCube = cubeElement;
       player.loadVideoById({ videoId: videoId, startSeconds: start });
       isPlaying = true;
@@ -223,6 +274,8 @@
       const musicControl = document.getElementById('musicControl');
       if (currentPlayingCube) {
         currentPlayingCube.classList.remove('playing');
+        currentPlayingCube.style.background = '';
+        currentPlayingCube.style.boxShadow = '';
         currentPlayingCube = null;
       }
       isPlaying = false;
@@ -245,11 +298,9 @@
         this.isGhost = isGhost;
         this.ghostLink = ghostLink;
         
-        // Ghost cubes are 70% size (56px), regular cubes are 80px
         this.size = isGhost ? 56 : 80;
         
         const dims = getDimensions();
-        // Spawn well within bounds
         this.x = randomRange(10, dims.width - this.size - 10);
         this.y = randomRange(10, dims.height - this.size - 10);
         
@@ -261,7 +312,6 @@
         if (isGhost) {
           this.element = document.createElement("div");
           this.element.className = "ghost-cube";
-          // UPDATED: No text content for ghost cubes
           this.element.textContent = ""; 
           this.element.onclick = () => playVideo(ghostLink.videoId, ghostLink.start, this.element);
         } else {
@@ -270,7 +320,12 @@
           this.element.href = link.url;
           this.element.target = "_blank";
           this.element.rel = "noopener noreferrer";
-          this.element.style.background = `hsl(${Math.random() * 360}, 100%, ${50 + Math.random() * 20}%)`;
+          
+          // GENERATE COLOR WITH CONTRAST
+          const colorData = getVibrantColor();
+          this.element.style.background = colorData.bg;
+          this.element.style.color = colorData.text;
+
           this.element.style.fontSize = "14px";
           this.element.textContent = link.label;
         }
@@ -289,7 +344,6 @@
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
 
-        // BOUNDARY CHECKS
         if (this.x <= 0) {
           this.vx = Math.abs(this.vx); 
           this.x = 0;
@@ -306,7 +360,6 @@
           this.y = maxY;
         }
 
-        // Collision Logic
         if (!this.isGhost) {
           for (let other of labeledCubes) {
             if (other === this) continue;
@@ -360,7 +413,6 @@
     }
     animate();
 
-    // Resize Handler
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', () => {
         const dims = getDimensions();
