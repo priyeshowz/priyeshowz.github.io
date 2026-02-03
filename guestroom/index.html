@@ -12,7 +12,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
-    /* RESET & BASE STYLES */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
@@ -24,7 +23,6 @@
       color: #333;
     }
     
-    /* HEADER LAYOUT */
     h1 { 
       font-size: 1.5rem; 
       margin-bottom: 10px; 
@@ -34,10 +32,9 @@
       gap: 10px;
       font-weight: 600; 
       letter-spacing: -0.5px;
-      flex-wrap: wrap; /* Prevents breaking on very small screens */
+      flex-wrap: wrap; 
     }
 
-    /* INPUT AREA */
     textarea {
       width: 100%; min-height: 100px; padding: 12px;
       border: 1px solid #ddd; border-radius: 4px;
@@ -56,7 +53,6 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     
-    /* MESSAGE LIST */
     .messages { border-top: 1px solid #eee; padding-top: 20px; }
     .message { border-bottom: 1px solid #eee; padding: 20px 0; position: relative; }
     .message small { color: #888; display: block; margin-top: 5px; font-size: 0.85rem; }
@@ -68,17 +64,16 @@
       font-size: 0.8rem;
     }
     
-    /* ADMIN UI BUTTONS */
     .admin-controls { margin-left: auto; display: flex; gap: 8px; }
     .admin-btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; font-weight: 600; }
     .btn-login { background: #222; color: #fff; }
     .btn-logout { background: #666; color: #fff; }
     .btn-backup { background: #007bff; color: #fff; }
 
-    /* LOAD MORE BUTTON */
     .load-more-btn {
         width: 100%; margin-top: 20px; background: #eee; 
-        color: #333; padding: 10px; font-size: 0.9rem; border: none;
+        color: #333; padding: 12px; font-size: 0.9rem; border: none;
+        border-radius: 4px;
     }
     .load-more-btn:hover { background: #ddd; }
     
@@ -109,7 +104,7 @@
 // --- CONFIGURATION ---
 const SUPABASE_URL = 'https://vxejmnxqwnmxcmsvxkjl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX';
-const PAGE_SIZE = 50; // Performance: Load 50 messages at a time
+const PAGE_SIZE = 50; 
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -125,13 +120,12 @@ const logoutBtn = document.getElementById('logoutBtn');
 const backupBtn = document.getElementById('backupBtn');
 
 // --- APP STATE ---
-let sessionPassword = null;     // Clears on refresh (Security feature)
-let fetchedMessages = [];       // Local cache of loaded messages
-let currentOffset = 0;          // Pagination tracker
-let hasMoreMessages = true;     // Smart button flag
+let sessionPassword = null; 
+let fetchedMessages = [];
+let currentOffset = 0;
+let hasMoreMessages = true; 
 
-// --- ADMIN UI SETUP ---
-// We only show controls if ?admin is in the URL
+// --- ADMIN UI ---
 const params = new URLSearchParams(window.location.search);
 const showAdminControls = params.has('admin');
 
@@ -139,34 +133,28 @@ function updateAdminUI() {
   if (!showAdminControls) return;
 
   if (sessionPassword) {
-    // Admin Mode: Active
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
     backupBtn.style.display = 'inline-block';
   } else {
-    // Admin Mode: Locked
     loginBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
     backupBtn.style.display = 'none';
   }
-  // Re-render list to show/hide delete buttons on existing messages
   renderMessages(); 
 }
 
 if (showAdminControls) {
-  // Login Action
   loginBtn.onclick = () => {
     const pwd = prompt("Enter admin password:");
     if (pwd) { sessionPassword = pwd; updateAdminUI(); }
   };
 
-  // Logout Action
   logoutBtn.onclick = () => {
     sessionPassword = null;
     updateAdminUI();
   };
 
-  // Backup Action (Future Proofing)
   backupBtn.onclick = async () => {
       const { data, error } = await supabaseClient.from('messages').select('*').order('created_at');
       if(error) { alert("Backup failed: " + error.message); return; }
@@ -175,7 +163,6 @@ if (showAdminControls) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      // Filename includes date: guestroom_backup_2026-02-04.json
       a.download = `guestroom_backup_${new Date().toISOString().slice(0,10)}.json`;
       a.click();
   };
@@ -183,14 +170,14 @@ if (showAdminControls) {
   updateAdminUI();
 }
 
-// --- MESSAGING LOGIC ---
+// --- MESSAGING ---
 
 input.oninput = () => {
   counter.textContent = `${input.value.length} / 280`;
   sendBtn.disabled = input.value.trim().length === 0;
 };
 
-// Render the list of messages based on current state
+// RENDER FUNCTION
 function renderMessages() {
   messagesDiv.innerHTML = fetchedMessages.map(m => `
     <div class="message">
@@ -203,7 +190,14 @@ function renderMessages() {
     </div>
   `).join('');
 
-  // SMART BUTTON: Only show if we suspect there are more messages
+  // --- SAFETY CHECK ---
+  // If visible messages < 50, we force the flag to false.
+  // This fixes the bug where the button persists incorrectly on Admin page.
+  if (fetchedMessages.length < PAGE_SIZE) {
+      hasMoreMessages = false;
+  }
+
+  // SMART BUTTON: Only show if flag is true AND we have messages
   if (hasMoreMessages && fetchedMessages.length > 0) {
       const loadBtn = document.createElement('button');
       loadBtn.className = 'load-more-btn';
@@ -213,7 +207,6 @@ function renderMessages() {
   }
 }
 
-// Fetch messages from Supabase
 async function loadMessages(isRefresh = true) {
   if (isRefresh) { 
       currentOffset = 0; 
@@ -225,19 +218,19 @@ async function loadMessages(isRefresh = true) {
     .from('messages')
     .select('*')
     .order('created_at', { ascending: false })
-    .range(currentOffset, currentOffset + PAGE_SIZE - 1); // Pagination Range
+    .range(currentOffset, currentOffset + PAGE_SIZE - 1); 
 
   if (error) { 
     errorDiv.innerHTML = `<div class="error">${error.message}</div>`; 
     return; 
   }
 
-  // If we requested 50 but got fewer (e.g. 12), we are at the end.
+  // Logic: If we requested 50 but got less, we are at the end.
   if (data.length < PAGE_SIZE) {
       hasMoreMessages = false; 
   }
 
-  // If completely empty and not refreshing, stop.
+  // Edge case: Empty response
   if (data.length === 0 && !isRefresh) {
       hasMoreMessages = false;
       renderMessages(); 
@@ -249,7 +242,6 @@ async function loadMessages(isRefresh = true) {
   renderMessages();
 }
 
-// Secure Delete (RPC)
 async function deleteMessage(id) {
   if (!sessionPassword || !confirm('Delete message?')) return;
 
@@ -260,18 +252,15 @@ async function deleteMessage(id) {
 
   if (error) {
     alert(`Failed: ${error.message}`);
-    // Security: If password was wrong, force logout immediately
     if (error.message.includes("Wrong password")) { 
         sessionPassword = null; 
         updateAdminUI(); 
     }
   } else {
-    // Refresh list to remove the deleted item visibly
     loadMessages(true);
   }
 }
 
-// Send Message
 async function sendMessage() {
   const content = input.value.trim();
   if (!content) return;
@@ -283,14 +272,13 @@ async function sendMessage() {
     return;
   }
 
-  // Reset UI
   input.value = '';
   counter.textContent = '0 / 280';
   sendBtn.disabled = true;
   loadMessages(true);
 }
 
-// Init
+// INIT
 sendBtn.onclick = sendMessage;
 loadMessages(true);
 </script>
