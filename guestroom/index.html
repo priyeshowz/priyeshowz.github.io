@@ -5,64 +5,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>guestroom</title>
 
-  <!-- Supabase JS v2 -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
     body {
       background: #000;
       color: #fff;
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
       padding: 24px;
     }
 
     h1 {
-      font-size: 28px;
+      font-weight: 600;
       margin-bottom: 16px;
     }
 
     textarea {
       width: 100%;
-      min-height: 120px;
-      padding: 12px;
+      max-width: 600px;
+      height: 120px;
       background: #111;
       color: #fff;
       border: 1px solid #333;
-      border-radius: 6px;
+      border-radius: 8px;
+      padding: 12px;
       resize: none;
-      font-size: 16px;
-    }
-
-    .row {
-      display: flex;
-      align-items: center;
-      margin-top: 12px;
-      gap: 12px;
-    }
-
-    #counter {
       font-size: 14px;
-      color: #aaa;
-      flex: 1;
     }
 
     button {
+      margin-top: 8px;
       padding: 10px 18px;
-      font-size: 16px;
+      border-radius: 8px;
       border: none;
-      border-radius: 6px;
       cursor: pointer;
+      font-size: 14px;
     }
 
-    button:disabled {
+    #counter {
+      font-size: 12px;
       opacity: 0.6;
-      cursor: not-allowed;
+      margin-top: 4px;
     }
 
     #status {
-      margin-top: 8px;
+      font-size: 12px;
+      margin-top: 6px;
+      opacity: 0.7;
+    }
+
+    #messages {
+      margin-top: 32px;
+      max-width: 600px;
+    }
+
+    .msg {
+      padding: 12px 0;
+      border-bottom: 1px solid #222;
       font-size: 14px;
-      color: #aaa;
+      white-space: pre-wrap;
+    }
+
+    .time {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -70,64 +78,74 @@
 
   <h1>guestroom</h1>
 
-  <textarea
-    id="message"
-    maxlength="280"
-    placeholder="leave something (280 chars max)"
-  ></textarea>
-
-  <div class="row">
-    <div id="counter">0 / 280</div>
-    <button id="send">send</button>
-  </div>
-
+  <textarea id="input" maxlength="280" placeholder="leave something (280 chars max)"></textarea>
+  <div id="counter">0 / 280</div>
+  <button id="send">send</button>
   <div id="status"></div>
 
-  <script>
-    // 🔐 Supabase config
-    const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
+  <div id="messages"></div>
 
-    // ⚠️ DO NOT name this `supabase`
-    const client = supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
+  <script>
+    const supabase = supabase.createClient(
+      "https://vxejmnxqwnmxcmsvxkjl.supabase.co",
+      "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX"
     );
 
-    const textarea = document.getElementById("message");
+    const input = document.getElementById("input");
     const counter = document.getElementById("counter");
-    const button = document.getElementById("send");
     const status = document.getElementById("status");
+    const messagesDiv = document.getElementById("messages");
 
-    // character counter
-    textarea.addEventListener("input", () => {
-      counter.textContent = `${textarea.value.length} / 280`;
+    input.addEventListener("input", () => {
+      counter.textContent = `${input.value.length} / 280`;
     });
 
-    // send message
-    button.addEventListener("click", async () => {
-      const text = textarea.value.trim();
+    async function loadMessages() {
+      const { data, error } = await supabase
+        .from("guestbook")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      messagesDiv.innerHTML = "";
+
+      data.forEach(row => {
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.innerHTML = `
+          ${row.content}
+          <div class="time">${new Date(row.created_at).toLocaleString()}</div>
+        `;
+        messagesDiv.appendChild(div);
+      });
+    }
+
+    document.getElementById("send").onclick = async () => {
+      const text = input.value.trim();
       if (!text) return;
 
-      button.disabled = true;
-      status.textContent = "sending…";
-
-      const { error } = await client
+      const { error } = await supabase
         .from("guestbook")
         .insert({ content: text });
 
       if (error) {
+        status.textContent = "error";
         console.error(error);
-        status.textContent = "failed to send";
-        button.disabled = false;
         return;
       }
 
-      textarea.value = "";
+      input.value = "";
       counter.textContent = "0 / 280";
       status.textContent = "sent";
-      button.disabled = false;
-    });
+
+      loadMessages();
+    };
+
+    loadMessages();
   </script>
 
 </body>
