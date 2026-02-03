@@ -1,105 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>guestroom</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: #0f0f0f;
-      color: #e6e6e6;
+      background: #000;
+      color: #fff;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     body {
-      max-width: 680px;
-      margin: 80px auto;
-      padding: 0 16px;
-      line-height: 1.6;
+      padding: 16px;
     }
 
     h1 {
-      font-size: 1.2rem;
+      font-size: 18px;
       font-weight: 600;
-      margin-bottom: 1.5rem;
-      text-transform: lowercase;
-      letter-spacing: 0.02em;
+      opacity: 0.8;
+      margin-bottom: 12px;
     }
 
-    p {
-      font-size: 0.95rem;
-      color: #cfcfcf;
-      margin-bottom: 1.25rem;
-    }
-
-    .hint {
-      font-size: 0.8rem;
-      color: #888;
+    form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
     }
 
     textarea {
-      width: 100%;
-      height: 120px;
-      background: #141414;
-      border: 1px solid #333;
-      color: #e6e6e6;
-      padding: 10px;
-      font-size: 0.9rem;
+      flex: 1;
       resize: none;
-      outline: none;
+      height: 60px;
+      padding: 8px;
+      background: #111;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 6px;
+      font-size: 14px;
     }
 
-    textarea:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    button {
+      padding: 0 14px;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
     }
 
-    .footer {
-      margin-top: 3rem;
-      font-size: 0.75rem;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .count {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-bottom: 12px;
     }
 
-    .footer a {
-      color: #666;
-      text-decoration: none;
+    .entry {
+      padding: 10px;
+      border-bottom: 1px solid #222;
     }
 
-    .footer a:hover {
-      color: #aaa;
-      text-decoration: underline;
+    .meta {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-top: 4px;
+    }
+
+    .delete {
+      font-size: 11px;
+      opacity: 0.4;
+      cursor: pointer;
+      margin-left: 8px;
     }
   </style>
 </head>
-
 <body>
 
   <h1>guestroom</h1>
 
-  <p>
-    this room is meant to hold anonymous messages left by visitors.
-  </p>
+  <form id="form">
+    <textarea id="message" maxlength="280" placeholder="leave something (280 chars max)"></textarea>
+    <button type="submit">send</button>
+  </form>
 
-  <p>
-    nothing is saved yet.
-  </p>
+  <div class="count" id="count">0 / 280</div>
 
-  <textarea disabled placeholder="eventually, you will be able to leave something here."></textarea>
+  <div id="entries"></div>
 
-  <p class="hint">
-    text only · no names · no replies · no likes
-  </p>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
 
-  <div class="footer">
-    <span>empty, for now</span>
-    <a href="/">back</a>
-  </div>
+    const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const form = document.getElementById("form");
+    const messageInput = document.getElementById("message");
+    const entriesEl = document.getElementById("entries");
+    const countEl = document.getElementById("count");
+
+    const ADMIN_DELETE = false; // set true locally if you want delete buttons
+
+    messageInput.addEventListener("input", () => {
+      countEl.textContent = `${messageInput.value.length} / 280`;
+    });
+
+    async function loadMessages() {
+      const { data, error } = await supabase
+        .from("guestbook")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      entriesEl.innerHTML = "";
+
+      data.forEach(row => {
+        const div = document.createElement("div");
+        div.className = "entry";
+        div.textContent = row.content;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = new Date(row.created_at).toLocaleString();
+
+        if (ADMIN_DELETE) {
+          const del = document.createElement("span");
+          del.className = "delete";
+          del.textContent = "delete";
+          del.onclick = async () => {
+            await supabase.from("guestbook").delete().eq("id", row.id);
+            loadMessages();
+          };
+          meta.appendChild(del);
+        }
+
+        div.appendChild(meta);
+        entriesEl.appendChild(div);
+      });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      await supabase.from("guestbook").insert({ content: text });
+      messageInput.value = "";
+      countEl.textContent = "0 / 280";
+      loadMessages();
+    });
+
+    loadMessages();
+  </script>
 
 </body>
 </html>
