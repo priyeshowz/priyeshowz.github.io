@@ -14,7 +14,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      /* CHANGED: Font family to Inter */
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #fafafa;
       padding: 20px;
@@ -26,19 +25,19 @@
     h1 { 
       font-size: 1.5rem; 
       margin-bottom: 10px; 
-      color: #333; /* Darker to match your alt page */
+      color: #333; 
       display: flex; 
       align-items: center; 
       gap: 10px;
       font-weight: 600; 
-      letter-spacing: -0.5px; /* Tighter tracking like the screenshot */
+      letter-spacing: -0.5px;
     }
 
     textarea {
       width: 100%; min-height: 100px; padding: 12px;
       border: 1px solid #ddd; border-radius: 4px;
       margin-bottom: 8px;
-      font-family: inherit; /* Inherit Inter font */
+      font-family: inherit;
     }
 
     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
@@ -72,6 +71,7 @@
         font-size: 0.75rem;
         padding: 4px 8px;
         margin-left: auto; 
+        cursor: pointer;
     }
     
     .error { background: #fee; color: #d00; padding: 10px; margin: 10px 0; }
@@ -110,7 +110,11 @@ const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
 const logoutBtn = document.getElementById('logoutBtn');
 
-// UI STATE
+// STATE
+// stored in RAM only (clears on refresh)
+let sessionPassword = null; 
+
+// UI SETUP
 const params = new URLSearchParams(window.location.search);
 const showAdminUI = params.has('admin');
 
@@ -118,11 +122,9 @@ if (showAdminUI) {
   document.getElementById('adminIndicator').style.display = 'inline-block';
   logoutBtn.style.display = 'inline-block';
   
+  // LOGOUT: Simply reload page without query params
   logoutBtn.onclick = () => {
-      if(confirm("Log out of admin mode?")) {
-          localStorage.removeItem('admin_pwd'); 
-          window.location.href = window.location.pathname; 
-      }
+      window.location.href = window.location.pathname; 
   };
 }
 
@@ -155,7 +157,8 @@ async function loadMessages() {
 }
 
 async function deleteMessage(id) {
-  let password = localStorage.getItem('admin_pwd');
+  // Use memory variable (sessionPassword) instead of localStorage
+  let password = sessionPassword;
 
   if (!password) {
     password = prompt("Enter admin password:");
@@ -171,10 +174,12 @@ async function deleteMessage(id) {
 
   if (error) {
     console.error(error);
-    localStorage.removeItem('admin_pwd');
+    // Clear the bad password from memory so they can try again
+    sessionPassword = null; 
     alert(`Failed: ${error.message}`);
   } else {
-    localStorage.setItem('admin_pwd', password);
+    // Save to memory (survives until refresh)
+    sessionPassword = password; 
     loadMessages();
   }
 }
