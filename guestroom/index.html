@@ -5,23 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>guestroom</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #fafafa;
+      padding: 20px;
       max-width: 600px;
       margin: 0 auto;
-      padding: 20px;
-      background: #fafafa;
-      color: #333;
-      line-height: 1.6;
     }
 
     h1 {
+      font-size: 1.5rem;
       font-weight: 400;
-      color: #666;
       margin-bottom: 30px;
+      color: #666;
     }
+
+    .compose { margin-bottom: 40px; }
 
     textarea {
       width: 100%;
@@ -29,193 +33,172 @@
       padding: 12px;
       border: 1px solid #ddd;
       border-radius: 4px;
+      font-family: inherit;
       font-size: 1rem;
       resize: vertical;
+      margin-bottom: 8px;
     }
 
     .controls {
       display: flex;
       justify-content: space-between;
-      margin-top: 8px;
       align-items: center;
     }
 
-    .counter {
-      font-size: 0.85rem;
-      color: #999;
-    }
+    .counter { font-size: 0.9rem; color: #999; }
+    .counter.over { color: #d00; }
 
     button {
-      padding: 6px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      padding: 8px 24px;
       background: #333;
       color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
     }
 
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
+    button:disabled { background: #ccc; }
 
     .messages {
-      margin-top: 40px;
       border-top: 1px solid #eee;
       padding-top: 20px;
     }
 
     .message {
-      margin-bottom: 24px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid #eee;
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid #f0f0f0;
+      position: relative;
     }
 
-    .date {
-      font-size: 0.8rem;
+    .message-content {
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .message-date {
+      font-size: 0.85rem;
       color: #999;
-      margin-top: 6px;
     }
 
-    .admin-delete {
-      margin-top: 6px;
-      background: none;
-      color: #c00;
-      font-size: 0.8rem;
-      padding: 0;
+    .message-delete {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 4px 12px;
+      background: #d00;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
     }
+
+    .admin-indicator {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 4px 8px;
+      background: #d00;
+      color: #fff;
+      font-size: 0.75rem;
+      border-radius: 3px;
+    }
+
+    .loading { text-align: center; color: #999; padding: 20px; }
+    .error { color: #d00; background: #fee; padding: 12px; border-radius: 4px; }
   </style>
 </head>
 <body>
 
-<h1>guestroom</h1>
+<h1>
+  guestroom
+  <span class="admin-indicator" id="adminIndicator" style="display:none;">ADMIN</span>
+</h1>
 
-<textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
-
-<div class="controls">
-  <span id="counter" class="counter">0 / 280</span>
-  <button id="sendBtn" disabled>Send</button>
+<div class="compose">
+  <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
+  <div class="controls">
+    <span class="counter" id="charCounter">0 / 280</span>
+    <button id="sendBtn" disabled>Send</button>
+  </div>
 </div>
 
-<div class="messages" id="messages"></div>
+<div id="errorContainer"></div>
+<div class="messages" id="messagesContainer">
+  <div class="loading">Loading messages...</div>
+</div>
 
 <script>
-/* ---------------- CONFIG ---------------- */
+const { createClient } = supabase;
 
-const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
-const EDGE_DELETE_URL =
-  "https://vxejmnxqwnmxcmsvxkjl.supabase.co/functions/v1/delete-message";
-const ADMIN_PASSWORD = "ionatropic2004";
-
-/* ---------------- INIT ---------------- */
-
-const supabase = supabaseJs.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
+const supabaseClient = createClient(
+  'https://vxejmnxqwnmxcmsvxkjl.supabase.co',
+  'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
 );
 
-const isAdmin =
-  new URLSearchParams(window.location.search).get("admin") === ADMIN_PASSWORD;
+const adminPassword = 'ionatropic2004';
+const urlParams = new URLSearchParams(window.location.search);
+const isAdmin = urlParams.get('admin') === adminPassword;
 
-const input = document.getElementById("messageInput");
-const counter = document.getElementById("counter");
-const sendBtn = document.getElementById("sendBtn");
-const messagesEl = document.getElementById("messages");
-
-/* ---------------- INPUT ---------------- */
-
-input.addEventListener("input", () => {
-  const len = input.value.length;
-  counter.textContent = `${len} / 280`;
-  sendBtn.disabled = len === 0 || len > 280;
-});
-
-/* ---------------- LOAD ---------------- */
+if (isAdmin) {
+  document.getElementById('adminIndicator').style.display = 'inline-block';
+}
 
 async function loadMessages() {
-  const { data, error } = await supabase
-    .from("messages")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data } = await supabaseClient
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  if (error) {
-    messagesEl.innerHTML = "<p>Failed to load messages.</p>";
+  if (!data || data.length === 0) {
+    messagesContainer.innerHTML = '<div class="loading">No messages yet.</div>';
     return;
   }
 
-  if (!data.length) {
-    messagesEl.innerHTML = "<p>No messages yet.</p>";
-    return;
-  }
-
-  messagesEl.innerHTML = data.map(msg => `
+  messagesContainer.innerHTML = data.map(msg => `
     <div class="message">
-      <div>${escapeHtml(msg.content)}</div>
-      <div class="date">${formatDate(msg.created_at)}</div>
-      ${isAdmin ? `
-        <button class="admin-delete" onclick="deleteMessage('${msg.id}')">
-          delete
-        </button>` : ""}
+      ${isAdmin ? `<button class="message-delete" onclick="deleteMessage('${msg.id}')">Delete</button>` : ''}
+      <div class="message-content">${escapeHtml(msg.content)}</div>
+      <div class="message-date">${formatDate(msg.created_at)}</div>
     </div>
-  `).join("");
+  `).join('');
 }
-
-/* ---------------- SEND ---------------- */
-
-sendBtn.addEventListener("click", async () => {
-  const content = input.value.trim();
-  if (!content) return;
-
-  sendBtn.disabled = true;
-
-  await supabase.from("messages").insert([{ content }]);
-
-  input.value = "";
-  counter.textContent = "0 / 280";
-  sendBtn.disabled = true;
-
-  loadMessages();
-});
-
-/* ---------------- DELETE (ADMIN ONLY) ---------------- */
 
 async function deleteMessage(id) {
-  if (!isAdmin) return;
+  if (!confirm('Delete this message?')) return;
 
-  const res = await fetch(EDGE_DELETE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id,
-      admin: ADMIN_PASSWORD
-    })
-  });
+  const res = await fetch(
+    'https://vxejmnxqwnmxcmsvxkjl.functions.supabase.co/delete-message',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, admin: adminPassword })
+    }
+  );
 
   if (!res.ok) {
-    alert("Delete failed");
+    alert('Delete failed');
     return;
   }
 
   loadMessages();
 }
 
-/* ---------------- UTILS ---------------- */
+window.deleteMessage = deleteMessage;
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+function escapeHtml(t) {
+  const d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
 }
 
 function formatDate(d) {
   return new Date(d).toLocaleString();
 }
 
-/* ---------------- START ---------------- */
-
 loadMessages();
 </script>
-
 </body>
 </html>
