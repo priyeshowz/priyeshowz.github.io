@@ -190,7 +190,7 @@
 
     // Check for admin mode
     const urlParams = new URLSearchParams(window.location.search);
-    const adminPassword = 'ionatropic2004'; // CHANGE THIS to your own secret password
+    const adminPassword = 'ionatropic2004';
     const isAdmin = urlParams.get('admin') === adminPassword;
 
     if (isAdmin) {
@@ -254,12 +254,22 @@
       if (!confirm('Delete this message?')) return;
 
       try {
-        const { error } = await supabaseClient
-          .from('messages')
-          .delete()
-          .eq('id', messageId);
+        const response = await fetch('https://vxejmnxqwnmxcmsvxkjl.supabase.co/functions/v1/delete_message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messageId: messageId,
+            adminPassword: adminPassword
+          })
+        });
 
-        if (error) throw error;
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to delete');
+        }
 
         await loadMessages();
       } catch (error) {
