@@ -18,9 +18,13 @@
 
     body {
       position: fixed; 
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
 
+    /* Common styles */
     .cube, .ghost-cube {
       position: absolute;
       border-radius: 6px;
@@ -46,6 +50,7 @@
       background: #333;
       color: transparent;
       opacity: 0.28;
+      font-size: 16px;
       transition: opacity 0.3s, background 0.3s, box-shadow 0.3s;
       z-index: 1;
     }
@@ -55,23 +60,27 @@
       z-index: 50;
     }
 
+    /* SIGNATURE STYLES */
     .signature {
       position: fixed;
       bottom: 16px;
       right: 20px;
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 600;           
+      text-transform: lowercase;  
+      letter-spacing: 0.02em;     
       opacity: 0.7;
       z-index: 10;
       mix-blend-mode: difference;
       color: white;
-      text-decoration: none;
+      text-decoration: none;      
+      cursor: pointer;
     }
 
     #bgPlayer {
       position: absolute;
       visibility: hidden;
-      width: 1px;
+      width: 1px; 
       height: 1px;
     }
 
@@ -79,7 +88,7 @@
       position: fixed;
       bottom: 16px;
       left: 20px;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 8px 12px;
       border-radius: 6px;
@@ -88,148 +97,331 @@
       display: none;
       cursor: pointer;
       mix-blend-mode: difference;
-      border: 1px solid rgba(255,255,255,0.2);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
-    .music-control.active { display: block; }
+    .music-control.active {
+      display: block;
+    }
   </style>
 </head>
 
 <body>
 
-<a href="" class="signature">priyesh</a>
-<div class="music-control" id="musicControl" onclick="toggleMusic()">⏸</div>
-<div id="bgPlayer"></div>
+  <a href="" class="signature">priyesh</a>
+  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ </div>
+  <div id="bgPlayer"></div>
 
-<script>
-/* YOUTUBE */
-var tag = document.createElement('script');
-tag.src = "https://www.youtube.com/iframe_api";
-document.head.appendChild(tag);
+  <script>
+    // --- YOUTUBE API ---
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-var player;
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player('bgPlayer', {
-    playerVars: { playsinline: 1, controls: 0, disablekb: 1, fs: 0, rel: 0 },
-    events: { onStateChange: e => e.data === 0 && resetMusicUI() }
-  });
-}
-
-/* BACKGROUND */
-const bgColors = ["#ff005d","#00ffd5","#ffe600","#7b00ff","#00ff44","#ff7a00"];
-document.body.style.background = bgColors[Math.floor(Math.random()*bgColors.length)];
-
-/* LINKS */
-const links = [
-  { url:"https://priyeshranjan.com", label:"home" },
-  { url:"https://priyeshowz.substack.com", label:"blog" },
-  { url:"https://www.goodreads.com/priyeshowz", label:"reads" },
-  { url:"https://letterboxd.com/priyeshowz", label:"boxd" },
-  { url:"https://instagram.com/priyeshowz", label:"insta" },
-  { url:"https://x.com/priyeshowz", label:"x" }
-];
-
-/* SONG POOL — UNTOUCHED (30) */
-const allGhostLinks = [ /* exactly your list */ 
-{videoId:"gt_Oe2yGE4o",start:25},{videoId:"Y1-Qymcppps",start:6},
-{videoId:"9OUurVdRGsc",start:56},{videoId:"6q6GtPdVHL4",start:28},
-{videoId:"gG_dA32oH44",start:36},{videoId:"MxEjnYdfLXU",start:0},
-{videoId:"2L1h4-EiTzM",start:36},{videoId:"o7fgFaXKVa0",start:0},
-{videoId:"rOHTCzwsg1s",start:66},{videoId:"H9NuWEeODew",start:50},
-{videoId:"ebSRSyycPf0",start:10},{videoId:"0_M2JX-Olv8",start:10},
-{videoId:"dcYJg5gGHC0",start:8},{videoId:"2L1h4-EiTzM",start:2},
-{videoId:"cj84OtodGmA",start:49},{videoId:"iX_TFkut1PM",start:145},
-{videoId:"rlb3IZ94CwE",start:43},{videoId:"jz-8_f6vG1M",start:7},
-{videoId:"qdroHHheK2c",start:47},{videoId:"HSkyD7lWxkY",start:162},
-{videoId:"VOukslHFYC0",start:13},{videoId:"SY1BL_JnzCo",start:0},
-{videoId:"pKHbgyNb9PM",start:88},{videoId:"ZK3tVnoYqHM",start:40},
-{videoId:"N-TKOh0zsvU",start:81},{videoId:"Y_V6y1ZCg_8",start:0},
-{videoId:"Y_V6y1ZCg_8",start:16},{videoId:"QAszapI0unE",start:0},
-{videoId:"wC4wbI5HLxs",start:4},{videoId:"10z6-vQm23w",start:17}
-];
-
-/* PICK 10, THEN PICK 1 OF THEM AS GUESTROOM */
-const ghostLinks = [...allGhostLinks].sort(()=>Math.random()-0.5).slice(0,10);
-const guestroomIndex = Math.floor(Math.random()*ghostLinks.length);
-
-let currentPlayingCube=null, isPlaying=false;
-
-function randomRange(a,b){return a+Math.random()*(b-a);}
-function dims(){return window.visualViewport||window;}
-
-class Cube{
-  constructor(link,isGhost=false,ghostLink=null,isGuestroom=false){
-    this.size=isGhost?56:80;
-    this.x=randomRange(10,dims().width-this.size-10);
-    this.y=randomRange(10,dims().height-this.size-10);
-    this.vx=randomRange(-2,2); this.vy=randomRange(-2,2);
-    this.rotation=Math.random()*360;
-    this.rs=randomRange(-3,3);
-
-    this.el=document.createElement(isGhost?"div":"a");
-    this.el.className=isGhost?"ghost-cube":"cube";
-
-    if(isGhost){
-      this.el.onclick=()=> isGuestroom
-        ? window.location.href="/guestroom"
-        : playVideo(ghostLink.videoId,ghostLink.start,this.el);
-    } else {
-      this.el.href=link.url; this.el.target="_blank";
-      this.el.textContent=link.label;
-      const c=getVibrantColor();
-      this.el.style.background=c.bg; this.el.style.color=c.text;
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('bgPlayer', {
+        height: '100%',
+        width: '100%',
+        videoId: '',
+        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0 },
+        events: { 'onStateChange': onPlayerStateChange }
+      });
     }
 
-    this.el.style.width=this.size+"px";
-    this.el.style.height=this.size+"px";
-    document.body.appendChild(this.el);
-  }
+    function onPlayerStateChange(event) {
+      if (event.data === 0) resetMusicUI();
+    }
 
-  update(arr){
-    this.x+=this.vx; this.y+=this.vy; this.rotation+=this.rs;
-    const mx=dims().width-this.size, my=dims().height-this.size;
-    if(this.x<=0||this.x>=mx) this.vx*=-1;
-    if(this.y<=0||this.y>=my) this.vy*=-1;
-    this.el.style.transform=`translate3d(${this.x}px,${this.y}px,0) rotate(${this.rotation}deg)`;
-  }
-}
+    // --- LOGIC ---
+    const bgColors = ["#ff005d", "#00ffd5", "#ffe600", "#7b00ff", "#00ff44", "#ff7a00"];
+    document.body.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
 
-/* COLOR */
-function getVibrantColor(){
-  const h=Math.random(),s=.6+Math.random()*.4,v=.7+Math.random()*.3;
-  const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
-  const map=[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6];
-  const r=map[0]*255,g=map[1]*255,b=map[2]*255;
-  return {bg:`rgb(${r|0},${g|0},${b|0})`,text:(r*299+g*587+b*114)/1000>=140?"#000":"#fff"};
-}
+    const links = [
+      { url: "https://priyeshranjan.com", label: "home" },
+      { url: "https://priyeshowz.substack.com", label: "blog" },
+      { url: "https://www.goodreads.com/priyeshowz", label: "reads" },
+      { url: "https://letterboxd.com/priyeshowz", label: "boxd" },
+      { url: "https://instagram.com/priyeshowz", label: "insta" },
+      { url: "https://x.com/priyeshowz", label: "x" }
+    ];
 
-/* MUSIC */
-function playVideo(id,start,el){
-  if(!player) return;
-  if(currentPlayingCube){currentPlayingCube.classList.remove("playing");}
-  el.classList.add("playing");
-  currentPlayingCube=el;
-  player.loadVideoById({videoId:id,startSeconds:start});
-  isPlaying=true;
-  musicControl.classList.add("active");
-}
-function resetMusicUI(){
-  if(currentPlayingCube) currentPlayingCube.classList.remove("playing");
-  isPlaying=false; musicControl.classList.remove("active");
-}
-function toggleMusic(){ if(isPlaying){player.stopVideo();resetMusicUI();} }
+    // ALL SONGS
+    const allGhostLinks = [
+      { videoId: "gt_Oe2yGE4o", start: 25, label: "♪" },
+      { videoId: "Y1-Qymcppps", start: 6, label: "♪" },
+      { videoId: "9OUurVdRGsc", start: 56, label: "♪" },
+      { videoId: "6q6GtPdVHL4", start: 28, label: "♪" },
+      { videoId: "gG_dA32oH44", start: 36, label: "♪" },
+      { videoId: "MxEjnYdfLXU", start: 0, label: "♪" },
+      { videoId: "2L1h4-EiTzM", start: 36, label: "♪" },
+      { videoId: "o7fgFaXKVa0", start: 0, label: "♪" },
+      { videoId: "rOHTCzwsg1s", start: 66, label: "♪" },
+      { videoId: "H9NuWEeODew", start: 50, label: "♪" },
+      { videoId: "ebSRSyycPf0", start: 10, label: "♪" },
+      { videoId: "0_M2JX-Olv8", start: 10, label: "♪" },
+      { videoId: "dcYJg5gGHC0", start: 8, label: "♪" },
+      { videoId: "2L1h4-EiTzM", start: 2, label: "♪" },
+      { videoId: "cj84OtodGmA", start: 49, label: "♪" },
+      { videoId: "iX_TFkut1PM", start: 145, label: "♪" },
+      { videoId: "rlb3IZ94CwE", start: 43, label: "♪" },
+      { videoId: "jz-8_f6vG1M", start: 7, label: "♪" },
+      { videoId: "qdroHHheK2c", start: 47, label: "♪" },
+      { videoId: "HSkyD7lWxkY", start: 162, label: "♪" },
+      { videoId: "VOukslHFYC0", start: 13, label: "♪" },
+      { videoId: "SY1BL_JnzCo", start: 0, label: "♪" },
+      { videoId: "pKHbgyNb9PM", start: 88, label: "♪" },
+      { videoId: "ZK3tVnoYqHM", start: 40, label: "♪" },
+      { videoId: "N-TKOh0zsvU", start: 81, label: "♪" },
+      { videoId: "Y_V6y1ZCg_8", start: 0, label: "♪" },
+      { videoId: "Y_V6y1ZCg_8", start: 16, label: "♪" },
+      { videoId: "QAszapI0unE", start: 0, label: "♪" },
+      { videoId: "wC4wbI5HLxs", start: 4, label: "♪" },
+      { videoId: "10z6-vQm23w", start: 17, label: "♪" }
+    ];
 
-/* INIT */
-const ghosts=[], cubes=[];
-ghostLinks.forEach((g,i)=>ghosts.push(new Cube(null,true,g,i===guestroomIndex)));
-links.forEach(l=>cubes.push(new Cube(l,false)));
+    function getRandomSongs(count) {
+      const shuffled = [...allGhostLinks].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
+    }
 
-(function animate(){
-  ghosts.forEach(c=>c.update());
-  cubes.forEach(c=>c.update(cubes));
-  requestAnimationFrame(animate);
-})();
-</script>
+    const ghostCount = 10;
+    const ghostLinks = getRandomSongs(ghostCount);
+    
+    // Pick one random ghost cube to hijack
+    const hijackedIndex = Math.floor(Math.random() * ghostCount);
+
+    let currentPlayingCube = null;
+    let isPlaying = false;
+
+    // --- COLOR & CONTRAST HELPER ---
+    function getVibrantColor() {
+      const h = Math.random(); 
+      const s = 0.6 + Math.random() * 0.4; 
+      const v = 0.7 + Math.random() * 0.3; 
+
+      let r, g, b;
+      let i = Math.floor(h * 6);
+      let f = h * 6 - i;
+      let p = v * (1 - s);
+      let q = v * (1 - f * s);
+      let t = v * (1 - (1 - f) * s);
+
+      switch (i % 6) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+      }
+
+      const r255 = Math.floor(r * 255);
+      const g255 = Math.floor(g * 255);
+      const b255 = Math.floor(b * 255);
+
+      const yiq = ((r255 * 299) + (g255 * 587) + (b255 * 114)) / 1000;
+      const textColor = (yiq >= 140) ? '#000000' : '#ffffff';
+
+      return {
+        bg: `rgb(${r255},${g255},${b255})`,
+        text: textColor
+      };
+    }
+
+    function getDimensions() {
+      if (window.visualViewport) {
+        return {
+          width: window.visualViewport.width,
+          height: window.visualViewport.height
+        };
+      }
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+    }
+
+    function playVideo(videoId, start, cubeElement) {
+      if (!player || typeof player.loadVideoById !== 'function') return;
+      const musicControl = document.getElementById('musicControl');
+      
+      if (currentPlayingCube) {
+        currentPlayingCube.classList.remove('playing');
+        currentPlayingCube.style.background = '';
+        currentPlayingCube.style.boxShadow = '';
+      }
+
+      cubeElement.classList.add('playing');
+      
+      const playColor = getVibrantColor().bg;
+      cubeElement.style.background = playColor;
+      cubeElement.style.boxShadow = `0 0 25px ${playColor}`;
+
+      currentPlayingCube = cubeElement;
+      player.loadVideoById({ videoId: videoId, startSeconds: start });
+      isPlaying = true;
+      musicControl.classList.add('active');
+      musicControl.textContent = '⏸ ';
+    }
+
+    function resetMusicUI() {
+      const musicControl = document.getElementById('musicControl');
+      if (currentPlayingCube) {
+        currentPlayingCube.classList.remove('playing');
+        currentPlayingCube.style.background = '';
+        currentPlayingCube.style.boxShadow = '';
+        currentPlayingCube = null;
+      }
+      isPlaying = false;
+      musicControl.classList.remove('active');
+    }
+
+    function toggleMusic() {
+      if (!player) return;
+      if (isPlaying) {
+        player.stopVideo();
+        resetMusicUI();
+      }
+    }
+
+    function randomRange(min, max) { return min + Math.random() * (max - min); }
+
+    class Cube {
+      constructor(link, isGhost = false, ghostLink = null, isHijacked = false) {
+        this.link = link;
+        this.isGhost = isGhost;
+        this.ghostLink = ghostLink;
+        this.isHijacked = isHijacked;
+        
+        this.size = isGhost ? 56 : 80;
+        
+        const dims = getDimensions();
+        this.x = randomRange(10, dims.width - this.size - 10);
+        this.y = randomRange(10, dims.height - this.size - 10);
+        
+        this.vx = randomRange(-2, 2);
+        this.vy = randomRange(-2, 2);
+        this.rotation = Math.random() * 360;
+        this.rotationSpeed = randomRange(-3, 3);
+        
+        if (isGhost) {
+          this.element = document.createElement("div");
+          this.element.className = "ghost-cube";
+          this.element.textContent = ""; 
+          
+          if (isHijacked) {
+            this.element.onclick = () => window.location.href = '/guestroom';
+          } else {
+            this.element.onclick = () => playVideo(ghostLink.videoId, ghostLink.start, this.element);
+          }
+        } else {
+          this.element = document.createElement("a");
+          this.element.className = "cube";
+          this.element.href = link.url;
+          this.element.target = "_blank";
+          this.element.rel = "noopener noreferrer";
+          
+          const colorData = getVibrantColor();
+          this.element.style.background = colorData.bg;
+          this.element.style.color = colorData.text;
+
+          this.element.style.fontSize = "14px";
+          this.element.textContent = link.label;
+        }
+        
+        this.element.style.width = this.size + "px";
+        this.element.style.height = this.size + "px";
+        document.body.appendChild(this.element);
+      }
+
+      update(labeledCubes) {
+        const dims = getDimensions();
+        const maxX = dims.width - this.size;
+        const maxY = dims.height - this.size;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotationSpeed;
+
+        if (this.x <= 0) {
+          this.vx = Math.abs(this.vx); 
+          this.x = 0;
+        } else if (this.x >= maxX) {
+          this.vx = -Math.abs(this.vx); 
+          this.x = maxX;
+        }
+
+        if (this.y <= 0) {
+          this.vy = Math.abs(this.vy);
+          this.y = 0;
+        } else if (this.y >= maxY) {
+          this.vy = -Math.abs(this.vy);
+          this.y = maxY;
+        }
+
+        if (!this.isGhost) {
+          for (let other of labeledCubes) {
+            if (other === this) continue;
+            
+            const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
+            const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
+            const distSq = dx * dx + dy * dy;
+            const minDist = this.size; 
+
+            if (distSq < minDist * minDist) {
+              const distance = Math.sqrt(distSq);
+              
+              const tempVx = this.vx;
+              const tempVy = this.vy;
+              this.vx = other.vx + randomRange(-0.5, 0.5);
+              this.vy = other.vy + randomRange(-0.5, 0.5);
+              other.vx = tempVx + randomRange(-0.5, 0.5);
+              other.vy = tempVy + randomRange(-0.5, 0.5);
+
+              const angle = Math.atan2(dy, dx);
+              const overlap = minDist - distance;
+              this.x += Math.cos(angle) * overlap / 2;
+              this.y += Math.sin(angle) * overlap / 2;
+              other.x -= Math.cos(angle) * overlap / 2;
+              other.y -= Math.sin(angle) * overlap / 2;
+            }
+          }
+        }
+
+        this.element.style.transform = `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
+      }
+    }
+
+    const ghostCubes = [];
+    const labeledCubes = [];
+    
+    for (let i = 0; i < ghostLinks.length; i++) {
+      ghostCubes.push(new Cube(null, true, ghostLinks[i], i === hijackedIndex));
+    }
+    
+    for (let i = 0; i < links.length; i++) {
+      labeledCubes.push(new Cube(links[i], false));
+    }
+
+    function animate() {
+      for (let cube of ghostCubes) cube.update([]);
+      for (let cube of labeledCubes) cube.update(labeledCubes);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        const dims = getDimensions();
+        [...ghostCubes, ...labeledCubes].forEach(cube => {
+          cube.x = Math.min(cube.x, dims.width - cube.size);
+          cube.y = Math.min(cube.y, dims.height - cube.size);
+        });
+      });
+    }
+  </script>
 
 </body>
 </html>
