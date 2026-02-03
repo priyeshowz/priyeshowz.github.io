@@ -1,427 +1,264 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>alt</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>guestroom</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    html, body {
+    * {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100dvh; 
-      overflow: hidden;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: black; 
+      box-sizing: border-box;
     }
 
     body {
-      position: fixed; 
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #fafafa;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
-    /* Common styles */
-    .cube, .ghost-cube {
-      position: absolute;
-      border-radius: 6px;
-      cursor: pointer;
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 30px;
+      color: #666;
+    }
+
+    .compose {
+      margin-bottom: 40px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+      margin-bottom: 8px;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #999;
+    }
+
+    .controls {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      text-transform: lowercase;
-      letter-spacing: 0.02em;
-      user-select: none;
-      text-decoration: none;
-      will-change: transform;
-      -webkit-tap-highlight-color: transparent; 
     }
 
-    .cube {
-      z-index: 5;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    .counter {
+      font-size: 0.9rem;
+      color: #999;
     }
 
-    .ghost-cube {
+    .counter.over {
+      color: #d00;
+    }
+
+    button {
+      padding: 8px 24px;
       background: #333;
-      color: transparent;
-      opacity: 0.28;
-      font-size: 16px;
-      transition: opacity 0.3s, background 0.3s, box-shadow 0.3s;
-      z-index: 1;
-    }
-
-    .ghost-cube.playing {
-      opacity: 0.9;
-      z-index: 50;
-    }
-
-    /* SIGNATURE STYLES */
-    .signature {
-      position: fixed;
-      bottom: 16px;
-      right: 20px;
-      font-size: 16px;
-      font-weight: 600;           
-      text-transform: lowercase;  
-      letter-spacing: 0.02em;     
-      opacity: 0.7;
-      z-index: 10;
-      mix-blend-mode: difference;
-      color: white;
-      text-decoration: none;      
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
       cursor: pointer;
     }
 
-    #bgPlayer {
-      position: absolute;
-      visibility: hidden;
-      width: 1px; 
-      height: 1px;
+    button:hover {
+      background: #555;
     }
 
-    .music-control {
-      position: fixed;
-      bottom: 16px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      z-index: 999;
-      display: none;
-      cursor: pointer;
-      mix-blend-mode: difference;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
 
-    .music-control.active {
-      display: block;
+    .messages {
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+    }
+
+    .message {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .message:last-child {
+      border-bottom: none;
+    }
+
+    .message-content {
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .message-date {
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .loading {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+
+    .error {
+      color: #d00;
+      padding: 12px;
+      background: #fee;
+      border-radius: 4px;
+      margin-bottom: 20px;
     }
   </style>
 </head>
-
 <body>
+  <h1>guestroom</h1>
 
-  <a href="" class="signature">priyesh</a>
-  <div class="music-control" id="musicControl" onclick="toggleMusic()">⏸ </div>
-  <div id="bgPlayer"></div>
+  <div class="compose">
+    <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
+    <div class="controls">
+      <span class="counter" id="charCounter">0 / 280</span>
+      <button id="sendBtn" disabled>Send</button>
+    </div>
+  </div>
+
+  <div id="errorContainer"></div>
+  <div class="messages" id="messagesContainer">
+    <div class="loading">Loading messages...</div>
+  </div>
 
   <script>
-    // --- YOUTUBE API ---
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    const { createClient } = supabase;
+    
+    const supabaseClient = createClient(
+      'https://vxejmnxqwnmxcmsvxkjl.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4ZWptbnhxd25teGNtc3Z4a2psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg2MTEzMTAsImV4cCI6MjA1NDE4NzMxMH0.sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
+    );
 
-    var player;
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('bgPlayer', {
-        height: '100%',
-        width: '100%',
-        videoId: '',
-        playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'fs': 0, 'rel': 0 },
-        events: { 'onStateChange': onPlayerStateChange }
+    const messageInput = document.getElementById('messageInput');
+    const charCounter = document.getElementById('charCounter');
+    const sendBtn = document.getElementById('sendBtn');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const errorContainer = document.getElementById('errorContainer');
+
+    messageInput.addEventListener('input', function() {
+      const length = messageInput.value.length;
+      charCounter.textContent = length + ' / 280';
+      
+      if (length > 280) {
+        charCounter.classList.add('over');
+        sendBtn.disabled = true;
+      } else if (length === 0) {
+        charCounter.classList.remove('over');
+        sendBtn.disabled = true;
+      } else {
+        charCounter.classList.remove('over');
+        sendBtn.disabled = false;
+      }
+    });
+
+    async function loadMessages() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        displayMessages(data);
+      } catch (error) {
+        showError('Failed to load messages: ' + error.message);
+        messagesContainer.innerHTML = '';
+      }
+    }
+
+    function displayMessages(messages) {
+      if (messages.length === 0) {
+        messagesContainer.innerHTML = '<div class="loading">No messages yet.</div>';
+        return;
+      }
+
+      messagesContainer.innerHTML = messages.map(function(msg) {
+        return '<div class="message"><div class="message-content">' + 
+          escapeHtml(msg.content) + 
+          '</div><div class="message-date">' + 
+          formatDate(msg.created_at) + 
+          '</div></div>';
+      }).join('');
+    }
+
+    async function sendMessage() {
+      const content = messageInput.value.trim();
+      
+      if (!content || content.length > 280) return;
+
+      sendBtn.disabled = true;
+      errorContainer.innerHTML = '';
+
+      try {
+        const { error } = await supabaseClient
+          .from('messages')
+          .insert([{ content: content }]);
+
+        if (error) throw error;
+
+        messageInput.value = '';
+        charCounter.textContent = '0 / 280';
+        sendBtn.disabled = true;
+        
+        await loadMessages();
+      } catch (error) {
+        showError('Failed to send message: ' + error.message);
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    
+    messageInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        sendMessage();
+      }
+    });
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
       });
     }
 
-    function onPlayerStateChange(event) {
-      if (event.data === 0) resetMusicUI();
+    function showError(message) {
+      errorContainer.innerHTML = '<div class="error">' + escapeHtml(message) + '</div>';
     }
 
-    // --- LOGIC ---
-    const bgColors = ["#ff005d", "#00ffd5", "#ffe600", "#7b00ff", "#00ff44", "#ff7a00"];
-    document.body.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
-
-    const links = [
-      { url: "https://priyeshranjan.com", label: "home" },
-      { url: "https://priyeshowz.substack.com", label: "blog" },
-      { url: "https://www.goodreads.com/priyeshowz", label: "reads" },
-      { url: "https://letterboxd.com/priyeshowz", label: "boxd" },
-      { url: "https://instagram.com/priyeshowz", label: "insta" },
-      { url: "https://x.com/priyeshowz", label: "x" }
-    ];
-
-    // ALL SONGS
-    const allGhostLinks = [
-      { videoId: "gt_Oe2yGE4o", start: 25, label: "♪" },
-      { videoId: "Y1-Qymcppps", start: 6, label: "♪" },
-      { videoId: "9OUurVdRGsc", start: 56, label: "♪" },
-      { videoId: "6q6GtPdVHL4", start: 28, label: "♪" },
-      { videoId: "gG_dA32oH44", start: 36, label: "♪" },
-      { videoId: "MxEjnYdfLXU", start: 0, label: "♪" },
-      { videoId: "2L1h4-EiTzM", start: 36, label: "♪" },
-      { videoId: "o7fgFaXKVa0", start: 0, label: "♪" },
-      { videoId: "rOHTCzwsg1s", start: 66, label: "♪" },
-      { videoId: "H9NuWEeODew", start: 50, label: "♪" },
-      { videoId: "ebSRSyycPf0", start: 10, label: "♪" },
-      { videoId: "0_M2JX-Olv8", start: 10, label: "♪" },
-      { videoId: "dcYJg5gGHC0", start: 8, label: "♪" },
-      { videoId: "2L1h4-EiTzM", start: 2, label: "♪" },
-      { videoId: "cj84OtodGmA", start: 49, label: "♪" },
-      { videoId: "iX_TFkut1PM", start: 145, label: "♪" },
-      { videoId: "rlb3IZ94CwE", start: 43, label: "♪" },
-      { videoId: "jz-8_f6vG1M", start: 7, label: "♪" },
-      { videoId: "qdroHHheK2c", start: 47, label: "♪" },
-      { videoId: "HSkyD7lWxkY", start: 162, label: "♪" },
-      { videoId: "VOukslHFYC0", start: 13, label: "♪" },
-      { videoId: "SY1BL_JnzCo", start: 0, label: "♪" },
-      { videoId: "pKHbgyNb9PM", start: 88, label: "♪" },
-      { videoId: "ZK3tVnoYqHM", start: 40, label: "♪" },
-      { videoId: "N-TKOh0zsvU", start: 81, label: "♪" },
-      { videoId: "Y_V6y1ZCg_8", start: 0, label: "♪" },
-      { videoId: "Y_V6y1ZCg_8", start: 16, label: "♪" },
-      { videoId: "QAszapI0unE", start: 0, label: "♪" },
-      { videoId: "wC4wbI5HLxs", start: 4, label: "♪" },
-      { videoId: "10z6-vQm23w", start: 17, label: "♪" }
-    ];
-
-    function getRandomSongs(count) {
-      const shuffled = [...allGhostLinks].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, count);
-    }
-
-    const ghostCount = 10;
-    const ghostLinks = getRandomSongs(ghostCount);
-    
-    // Pick one random ghost cube to hijack
-    const hijackedIndex = Math.floor(Math.random() * ghostCount);
-
-    let currentPlayingCube = null;
-    let isPlaying = false;
-
-    // --- COLOR & CONTRAST HELPER ---
-    function getVibrantColor() {
-      const h = Math.random(); 
-      const s = 0.6 + Math.random() * 0.4; 
-      const v = 0.7 + Math.random() * 0.3; 
-
-      let r, g, b;
-      let i = Math.floor(h * 6);
-      let f = h * 6 - i;
-      let p = v * (1 - s);
-      let q = v * (1 - f * s);
-      let t = v * (1 - (1 - f) * s);
-
-      switch (i % 6) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        case 5: r = v, g = p, b = q; break;
-      }
-
-      const r255 = Math.floor(r * 255);
-      const g255 = Math.floor(g * 255);
-      const b255 = Math.floor(b * 255);
-
-      const yiq = ((r255 * 299) + (g255 * 587) + (b255 * 114)) / 1000;
-      const textColor = (yiq >= 140) ? '#000000' : '#ffffff';
-
-      return {
-        bg: `rgb(${r255},${g255},${b255})`,
-        text: textColor
-      };
-    }
-
-    function getDimensions() {
-      if (window.visualViewport) {
-        return {
-          width: window.visualViewport.width,
-          height: window.visualViewport.height
-        };
-      }
-      return {
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
-    }
-
-    function playVideo(videoId, start, cubeElement) {
-      if (!player || typeof player.loadVideoById !== 'function') return;
-      const musicControl = document.getElementById('musicControl');
-      
-      if (currentPlayingCube) {
-        currentPlayingCube.classList.remove('playing');
-        currentPlayingCube.style.background = '';
-        currentPlayingCube.style.boxShadow = '';
-      }
-
-      cubeElement.classList.add('playing');
-      
-      const playColor = getVibrantColor().bg;
-      cubeElement.style.background = playColor;
-      cubeElement.style.boxShadow = `0 0 25px ${playColor}`;
-
-      currentPlayingCube = cubeElement;
-      player.loadVideoById({ videoId: videoId, startSeconds: start });
-      isPlaying = true;
-      musicControl.classList.add('active');
-      musicControl.textContent = '⏸ ';
-    }
-
-    function resetMusicUI() {
-      const musicControl = document.getElementById('musicControl');
-      if (currentPlayingCube) {
-        currentPlayingCube.classList.remove('playing');
-        currentPlayingCube.style.background = '';
-        currentPlayingCube.style.boxShadow = '';
-        currentPlayingCube = null;
-      }
-      isPlaying = false;
-      musicControl.classList.remove('active');
-    }
-
-    function toggleMusic() {
-      if (!player) return;
-      if (isPlaying) {
-        player.stopVideo();
-        resetMusicUI();
-      }
-    }
-
-    function randomRange(min, max) { return min + Math.random() * (max - min); }
-
-    class Cube {
-      constructor(link, isGhost = false, ghostLink = null, isHijacked = false) {
-        this.link = link;
-        this.isGhost = isGhost;
-        this.ghostLink = ghostLink;
-        this.isHijacked = isHijacked;
-        
-        this.size = isGhost ? 56 : 80;
-        
-        const dims = getDimensions();
-        this.x = randomRange(10, dims.width - this.size - 10);
-        this.y = randomRange(10, dims.height - this.size - 10);
-        
-        this.vx = randomRange(-2, 2);
-        this.vy = randomRange(-2, 2);
-        this.rotation = Math.random() * 360;
-        this.rotationSpeed = randomRange(-3, 3);
-        
-        if (isGhost) {
-          this.element = document.createElement("div");
-          this.element.className = "ghost-cube";
-          this.element.textContent = ""; 
-          
-          if (isHijacked) {
-            this.element.onclick = () => window.location.href = '/guestroom';
-          } else {
-            this.element.onclick = () => playVideo(ghostLink.videoId, ghostLink.start, this.element);
-          }
-        } else {
-          this.element = document.createElement("a");
-          this.element.className = "cube";
-          this.element.href = link.url;
-          this.element.target = "_blank";
-          this.element.rel = "noopener noreferrer";
-          
-          const colorData = getVibrantColor();
-          this.element.style.background = colorData.bg;
-          this.element.style.color = colorData.text;
-
-          this.element.style.fontSize = "14px";
-          this.element.textContent = link.label;
-        }
-        
-        this.element.style.width = this.size + "px";
-        this.element.style.height = this.size + "px";
-        document.body.appendChild(this.element);
-      }
-
-      update(labeledCubes) {
-        const dims = getDimensions();
-        const maxX = dims.width - this.size;
-        const maxY = dims.height - this.size;
-
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotation += this.rotationSpeed;
-
-        if (this.x <= 0) {
-          this.vx = Math.abs(this.vx); 
-          this.x = 0;
-        } else if (this.x >= maxX) {
-          this.vx = -Math.abs(this.vx); 
-          this.x = maxX;
-        }
-
-        if (this.y <= 0) {
-          this.vy = Math.abs(this.vy);
-          this.y = 0;
-        } else if (this.y >= maxY) {
-          this.vy = -Math.abs(this.vy);
-          this.y = maxY;
-        }
-
-        if (!this.isGhost) {
-          for (let other of labeledCubes) {
-            if (other === this) continue;
-            
-            const dx = (this.x + this.size / 2) - (other.x + other.size / 2);
-            const dy = (this.y + this.size / 2) - (other.y + other.size / 2);
-            const distSq = dx * dx + dy * dy;
-            const minDist = this.size; 
-
-            if (distSq < minDist * minDist) {
-              const distance = Math.sqrt(distSq);
-              
-              const tempVx = this.vx;
-              const tempVy = this.vy;
-              this.vx = other.vx + randomRange(-0.5, 0.5);
-              this.vy = other.vy + randomRange(-0.5, 0.5);
-              other.vx = tempVx + randomRange(-0.5, 0.5);
-              other.vy = tempVy + randomRange(-0.5, 0.5);
-
-              const angle = Math.atan2(dy, dx);
-              const overlap = minDist - distance;
-              this.x += Math.cos(angle) * overlap / 2;
-              this.y += Math.sin(angle) * overlap / 2;
-              other.x -= Math.cos(angle) * overlap / 2;
-              other.y -= Math.sin(angle) * overlap / 2;
-            }
-          }
-        }
-
-        this.element.style.transform = `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rotation}deg)`;
-      }
-    }
-
-    const ghostCubes = [];
-    const labeledCubes = [];
-    
-    for (let i = 0; i < ghostLinks.length; i++) {
-      ghostCubes.push(new Cube(null, true, ghostLinks[i], i === hijackedIndex));
-    }
-    
-    for (let i = 0; i < links.length; i++) {
-      labeledCubes.push(new Cube(links[i], false));
-    }
-
-    function animate() {
-      for (let cube of ghostCubes) cube.update([]);
-      for (let cube of labeledCubes) cube.update(labeledCubes);
-      requestAnimationFrame(animate);
-    }
-    animate();
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', () => {
-        const dims = getDimensions();
-        [...ghostCubes, ...labeledCubes].forEach(cube => {
-          cube.x = Math.min(cube.x, dims.width - cube.size);
-          cube.y = Math.min(cube.y, dims.height - cube.size);
-        });
-      });
-    }
+    loadMessages();
   </script>
-
 </body>
 </html>
