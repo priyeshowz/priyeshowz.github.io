@@ -93,6 +93,7 @@
       margin-bottom: 30px;
       padding-bottom: 30px;
       border-bottom: 1px solid #f0f0f0;
+      position: relative;
     }
 
     .message:last-child {
@@ -108,6 +109,34 @@
     .message-date {
       font-size: 0.85rem;
       color: #999;
+    }
+
+    .message-delete {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 4px 12px;
+      background: #d00;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .message-delete:hover {
+      background: #a00;
+    }
+
+    .admin-indicator {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 4px 8px;
+      background: #d00;
+      color: #fff;
+      font-size: 0.75rem;
+      border-radius: 3px;
+      font-weight: 500;
     }
 
     .loading {
@@ -126,7 +155,10 @@
   </style>
 </head>
 <body>
-  <h1>guestroom</h1>
+  <h1>
+    guestroom
+    <span class="admin-indicator" id="adminIndicator" style="display: none;">ADMIN</span>
+  </h1>
 
   <div class="compose">
     <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
@@ -154,6 +186,16 @@
     const sendBtn = document.getElementById('sendBtn');
     const messagesContainer = document.getElementById('messagesContainer');
     const errorContainer = document.getElementById('errorContainer');
+    const adminIndicator = document.getElementById('adminIndicator');
+
+    // Check for admin mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminPassword = 'ionatropic2004'; // CHANGE THIS to your own secret password
+    const isAdmin = urlParams.get('admin') === adminPassword;
+
+    if (isAdmin) {
+      adminIndicator.style.display = 'inline-block';
+    }
 
     messageInput.addEventListener('input', function() {
       const length = messageInput.value.length;
@@ -194,13 +236,39 @@
       }
 
       messagesContainer.innerHTML = messages.map(function(msg) {
-        return '<div class="message"><div class="message-content">' + 
+        const deleteBtn = isAdmin 
+          ? '<button class="message-delete" onclick="deleteMessage(\'' + msg.id + '\')">Delete</button>'
+          : '';
+        
+        return '<div class="message">' + 
+          deleteBtn +
+          '<div class="message-content">' + 
           escapeHtml(msg.content) + 
           '</div><div class="message-date">' + 
           formatDate(msg.created_at) + 
           '</div></div>';
       }).join('');
     }
+
+    async function deleteMessage(messageId) {
+      if (!confirm('Delete this message?')) return;
+
+      try {
+        const { error } = await supabaseClient
+          .from('messages')
+          .delete()
+          .eq('id', messageId);
+
+        if (error) throw error;
+
+        await loadMessages();
+      } catch (error) {
+        showError('Failed to delete message: ' + error.message);
+      }
+    }
+
+    // Make deleteMessage available globally
+    window.deleteMessage = deleteMessage;
 
     async function sendMessage() {
       const content = messageInput.value.trim();
