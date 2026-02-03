@@ -33,6 +33,7 @@
       position: absolute; right: 0; top: 0;
       background: #d00; color: #fff;
       border: none; padding: 4px 12px;
+      cursor: pointer;
     }
     .admin-indicator {
       margin-left: 10px; background: #d00;
@@ -59,22 +60,27 @@
 <div class="messages" id="messagesContainer">Loading…</div>
 
 <script>
+// CONFIG
 const SUPABASE_URL = 'https://vxejmnxqwnmxcmsvxkjl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX';
-const ADMIN_PASSWORD = 'ionatropic2004';
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const params = new URLSearchParams(window.location.search);
-const isAdmin = params.get('admin') === ADMIN_PASSWORD;
-if (isAdmin) document.getElementById('adminIndicator').style.display = 'inline-block';
-
+// DOM ELEMENTS
 const input = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const counter = document.getElementById('charCounter');
 const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
+
+// UI STATE (Shows buttons if ?admin is in URL)
+const params = new URLSearchParams(window.location.search);
+const showAdminUI = params.has('admin');
+
+if (showAdminUI) {
+  document.getElementById('adminIndicator').style.display = 'inline-block';
+}
 
 input.oninput = () => {
   counter.textContent = `${input.value.length} / 280`;
@@ -94,35 +100,44 @@ async function loadMessages() {
 
   messagesDiv.innerHTML = data.map(m => `
     <div class="message">
-      ${isAdmin ? `<button class="message-delete" onclick="deleteMessage(${m.id})">Delete</button>` : ''}
-      <div>${m.content}</div>
+      ${showAdminUI ? `<button class="message-delete" onclick="deleteMessage(${m.id})">Delete</button>` : ''}
+      <div>${m.content
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")}</div>
       <small>${new Date(m.created_at).toLocaleString()}</small>
     </div>
   `).join('');
 }
 
 async function deleteMessage(id) {
-  if (!confirm('Delete message?')) return;
+  // 1. Check local storage for password
+  let password = localStorage.getItem('admin_pwd');
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-message`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-    },
-    body: JSON.stringify({
-      messageId: id,
-      adminPassword: ADMIN_PASSWORD
-    })
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    errorDiv.innerHTML = `<div class="error">${text}</div>`;
-    return;
+  // 2. If missing, prompt user
+  if (!password) {
+    password = prompt("Enter admin password:");
+    if (!password) return; // User cancelled
   }
 
-  loadMessages();
+  if (!confirm('Delete message?')) return;
+
+  // 3. Call Secure RPC
+  const { error } = await supabaseClient.rpc('admin_delete_message', {
+    message_id: id,
+    password_input: password
+  });
+
+  if (error) {
+    // 4. On error (wrong password), clear storage and alert
+    console.error(error);
+    localStorage.removeItem('admin_pwd');
+    alert(`Failed: ${error.message}`);
+  } else {
+    // 5. On success, save password and reload
+    localStorage.setItem('admin_pwd', password);
+    loadMessages();
+  }
 }
 
 async function sendMessage() {
