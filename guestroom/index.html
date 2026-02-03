@@ -1,188 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>guestroom</title>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body {
+    * {
       margin: 0;
-      padding: 24px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #000;
-      color: #fff;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #fafafa;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
     h1 {
-      margin-bottom: 16px;
-      font-size: 32px;
-      font-weight: 600;
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 30px;
+      color: #666;
+    }
+
+    .compose {
+      margin-bottom: 40px;
     }
 
     textarea {
       width: 100%;
-      max-width: 600px;
-      height: 120px;
-      padding: 14px;
-      font-size: 16px;
-      color: #fff;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 8px;
-      resize: none;
+      min-height: 100px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+      margin-bottom: 8px;
+    }
+
+    textarea:focus {
       outline: none;
+      border-color: #999;
     }
 
-    textarea::placeholder {
-      color: #666;
-    }
-
-    .row {
-      margin-top: 8px;
+    .controls {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 12px;
     }
 
-    #counter {
-      font-size: 14px;
-      color: #aaa;
+    .counter {
+      font-size: 0.9rem;
+      color: #999;
+    }
+
+    .counter.over {
+      color: #d00;
     }
 
     button {
-      padding: 10px 18px;
-      font-size: 16px;
-      background: #fff;
-      color: #000;
+      padding: 8px 24px;
+      background: #333;
+      color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 4px;
+      font-size: 1rem;
       cursor: pointer;
     }
 
+    button:hover {
+      background: #555;
+    }
+
     button:disabled {
-      opacity: 0.5;
+      background: #ccc;
       cursor: not-allowed;
     }
 
-    #status {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #aaa;
+    .messages {
+      border-top: 1px solid #eee;
+      padding-top: 20px;
     }
 
-    ul {
-      margin-top: 32px;
-      padding: 0;
-      list-style: none;
-      max-width: 600px;
+    .message {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid #f0f0f0;
     }
 
-    li {
-      padding: 12px 14px;
-      margin-bottom: 10px;
-      background: #0f0f0f;
-      border: 1px solid #222;
-      border-radius: 8px;
-      font-size: 15px;
-      line-height: 1.4;
+    .message:last-child {
+      border-bottom: none;
+    }
+
+    .message-content {
+      margin-bottom: 8px;
+      white-space: pre-wrap;
       word-wrap: break-word;
+    }
+
+    .message-date {
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .loading {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+
+    .error {
+      color: #d00;
+      padding: 12px;
+      background: #fee;
+      border-radius: 4px;
+      margin-bottom: 20px;
     }
   </style>
 </head>
-
 <body>
   <h1>guestroom</h1>
 
-  <textarea
-    id="message"
-    maxlength="280"
-    placeholder="leave something (280 chars max)"
-  ></textarea>
-
-  <div class="row">
-    <div id="counter">0 / 280</div>
-    <button id="send">send</button>
+  <div class="compose">
+    <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
+    <div class="controls">
+      <span class="counter" id="charCounter">0 / 280</span>
+      <button id="sendBtn">Send</button>
+    </div>
   </div>
 
-  <div id="status"></div>
-
-  <ul id="messages"></ul>
-
-  <!-- SUPABASE -->
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <div id="errorContainer"></div>
+  <div class="messages" id="messagesContainer">
+    <div class="loading">Loading messages...</div>
+  </div>
 
   <script>
-alert("JS is running");
-    console.log("JS LOADED");
-
-    const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
-    const SUPABASE_KEY =
-      "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
-
-    const supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
+    // Initialize Supabase
+    const supabase = supabase.createClient(
+      'https://vxejmnxqwnmxcmsvxkjl.supabase.co',
+      'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
     );
 
-    const textarea = document.getElementById("message");
-    const counter = document.getElementById("counter");
-    const sendBtn = document.getElementById("send");
-    const status = document.getElementById("status");
-    const list = document.getElementById("messages");
+    const messageInput = document.getElementById('messageInput');
+    const charCounter = document.getElementById('charCounter');
+    const sendBtn = document.getElementById('sendBtn');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const errorContainer = document.getElementById('errorContainer');
 
-    textarea.addEventListener("input", () => {
-      counter.textContent = `${textarea.value.length} / 280`;
-    });
-
-    sendBtn.addEventListener("click", async () => {
-      console.log("SEND CLICKED");
-
-      const text = textarea.value.trim();
-      if (!text) return;
-
-      sendBtn.disabled = true;
-      status.textContent = "sending…";
-
-      const { error } = await supabase
-        .from("guestbook")
-        .insert({ content: text });
-
-      if (error) {
-        console.error(error);
-        status.textContent = "error";
-        sendBtn.disabled = false;
-        return;
+    // Update character counter
+    messageInput.addEventListener('input', () => {
+      const length = messageInput.value.length;
+      charCounter.textContent = `${length} / 280`;
+      
+      if (length > 280) {
+        charCounter.classList.add('over');
+      } else {
+        charCounter.classList.remove('over');
       }
 
-      textarea.value = "";
-      counter.textContent = "0 / 280";
-      status.textContent = "sent";
-      sendBtn.disabled = false;
-
-      loadMessages();
+      sendBtn.disabled = length === 0 || length > 280;
     });
 
+    // Load messages
     async function loadMessages() {
-      const { data, error } = await supabase
-        .from("guestbook")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error(error);
-        return;
-      }
+        if (error) throw error;
 
-      list.innerHTML = "";
-
-      for (const row of data) {
-        const li = document.createElement("li");
-        li.textContent = row.content;
-        list.appendChild(li);
+        displayMessages(data);
+      } catch (error) {
+        showError('Failed to load messages: ' + error.message);
+        messagesContainer.innerHTML = '';
       }
     }
 
+    // Display messages
+    function displayMessages(messages) {
+      if (messages.length === 0) {
+        messagesContainer.innerHTML = '<div class="loading">No messages yet.</div>';
+        return;
+      }
+
+      messagesContainer.innerHTML = messages.map(msg => `
+        <div class="message">
+          <div class="message-content">${escapeHtml(msg.content)}</div>
+          <div class="message-date">${formatDate(msg.created_at)}</div>
+        </div>
+      `).join('');
+    }
+
+    // Send message
+    async function sendMessage() {
+      const content = messageInput.value.trim();
+      
+      if (!content || content.length > 280) return;
+
+      sendBtn.disabled = true;
+      errorContainer.innerHTML = '';
+
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .insert([{ content }]);
+
+        if (error) throw error;
+
+        messageInput.value = '';
+        charCounter.textContent = '0 / 280';
+        
+        await loadMessages();
+      } catch (error) {
+        showError('Failed to send message: ' + error.message);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    // Event listeners
+    sendBtn.addEventListener('click', sendMessage);
+    
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        sendMessage();
+      }
+    });
+
+    // Utility functions
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    function showError(message) {
+      errorContainer.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+    }
+
+    // Load messages on page load
     loadMessages();
   </script>
 </body>
