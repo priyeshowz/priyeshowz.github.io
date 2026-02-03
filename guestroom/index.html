@@ -132,7 +132,7 @@
     <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
     <div class="controls">
       <span class="counter" id="charCounter">0 / 280</span>
-      <button id="sendBtn">Send</button>
+      <button id="sendBtn" disabled>Send</button>
     </div>
   </div>
 
@@ -142,10 +142,11 @@
   </div>
 
   <script>
-    // Initialize Supabase
-    const supabase = supabase.createClient(
+    const { createClient } = supabase;
+    
+    const supabaseClient = createClient(
       'https://vxejmnxqwnmxcmsvxkjl.supabase.co',
-      'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4ZWptbnhxd25teGNtc3Z4a2psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg2MTEzMTAsImV4cCI6MjA1NDE4NzMxMH0.sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
     );
 
     const messageInput = document.getElementById('messageInput');
@@ -154,24 +155,25 @@
     const messagesContainer = document.getElementById('messagesContainer');
     const errorContainer = document.getElementById('errorContainer');
 
-    // Update character counter
-    messageInput.addEventListener('input', () => {
+    messageInput.addEventListener('input', function() {
       const length = messageInput.value.length;
-      charCounter.textContent = `${length} / 280`;
+      charCounter.textContent = length + ' / 280';
       
       if (length > 280) {
         charCounter.classList.add('over');
+        sendBtn.disabled = true;
+      } else if (length === 0) {
+        charCounter.classList.remove('over');
+        sendBtn.disabled = true;
       } else {
         charCounter.classList.remove('over');
+        sendBtn.disabled = false;
       }
-
-      sendBtn.disabled = length === 0 || length > 280;
     });
 
-    // Load messages
     async function loadMessages() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .from('messages')
           .select('*')
           .order('created_at', { ascending: false });
@@ -185,22 +187,21 @@
       }
     }
 
-    // Display messages
     function displayMessages(messages) {
       if (messages.length === 0) {
         messagesContainer.innerHTML = '<div class="loading">No messages yet.</div>';
         return;
       }
 
-      messagesContainer.innerHTML = messages.map(msg => `
-        <div class="message">
-          <div class="message-content">${escapeHtml(msg.content)}</div>
-          <div class="message-date">${formatDate(msg.created_at)}</div>
-        </div>
-      `).join('');
+      messagesContainer.innerHTML = messages.map(function(msg) {
+        return '<div class="message"><div class="message-content">' + 
+          escapeHtml(msg.content) + 
+          '</div><div class="message-date">' + 
+          formatDate(msg.created_at) + 
+          '</div></div>';
+      }).join('');
     }
 
-    // Send message
     async function sendMessage() {
       const content = messageInput.value.trim();
       
@@ -210,33 +211,31 @@
       errorContainer.innerHTML = '';
 
       try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('messages')
-          .insert([{ content }]);
+          .insert([{ content: content }]);
 
         if (error) throw error;
 
         messageInput.value = '';
         charCounter.textContent = '0 / 280';
+        sendBtn.disabled = true;
         
         await loadMessages();
       } catch (error) {
         showError('Failed to send message: ' + error.message);
-      } finally {
         sendBtn.disabled = false;
       }
     }
 
-    // Event listeners
     sendBtn.addEventListener('click', sendMessage);
     
-    messageInput.addEventListener('keydown', (e) => {
+    messageInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         sendMessage();
       }
     });
 
-    // Utility functions
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -256,10 +255,9 @@
     }
 
     function showError(message) {
-      errorContainer.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+      errorContainer.innerHTML = '<div class="error">' + escapeHtml(message) + '</div>';
     }
 
-    // Load messages on page load
     loadMessages();
   </script>
 </body>
