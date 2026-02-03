@@ -5,48 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>guestroom</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      /* CHANGED: Font family to Inter */
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #fafafa;
       padding: 20px;
       max-width: 600px;
       margin: 0 auto;
       color: #333;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 10px; color: #666; display: flex; align-items: center; gap: 10px; }
+    
+    h1 { 
+      font-size: 1.5rem; 
+      margin-bottom: 10px; 
+      color: #333; /* Darker to match your alt page */
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      font-weight: 600; 
+      letter-spacing: -0.5px; /* Tighter tracking like the screenshot */
+    }
+
     textarea {
       width: 100%; min-height: 100px; padding: 12px;
       border: 1px solid #ddd; border-radius: 4px;
       margin-bottom: 8px;
+      font-family: inherit; /* Inherit Inter font */
     }
+
     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+    
     button {
       padding: 8px 24px; background: #333; color: #fff;
       border: none; border-radius: 4px;
+      font-family: inherit;
     }
     button:disabled { background: #ccc; }
+    
     .messages { border-top: 1px solid #eee; padding-top: 20px; }
     .message { border-bottom: 1px solid #eee; padding: 20px 0; position: relative; }
+    
     .message-delete {
       position: absolute; right: 0; top: 0;
       background: #d00; color: #fff;
       border: none; padding: 4px 12px;
       cursor: pointer;
     }
+    
     .admin-indicator {
       background: #d00;
       color: #fff; padding: 4px 8px;
       font-size: 0.75rem;
       border-radius: 4px;
     }
+    
     #logoutBtn {
         background: #666;
         font-size: 0.75rem;
         padding: 4px 8px;
-        margin-left: auto; /* Pushes button to far right */
+        margin-left: auto; 
     }
+    
     .error { background: #fee; color: #d00; padding: 10px; margin: 10px 0; }
   </style>
 </head>
@@ -83,7 +110,7 @@ const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
 const logoutBtn = document.getElementById('logoutBtn');
 
-// UI STATE (Shows buttons if ?admin is in URL)
+// UI STATE
 const params = new URLSearchParams(window.location.search);
 const showAdminUI = params.has('admin');
 
@@ -91,11 +118,10 @@ if (showAdminUI) {
   document.getElementById('adminIndicator').style.display = 'inline-block';
   logoutBtn.style.display = 'inline-block';
   
-  // LOGOUT LOGIC
   logoutBtn.onclick = () => {
       if(confirm("Log out of admin mode?")) {
-          localStorage.removeItem('admin_pwd'); // Clear saved password
-          window.location.href = window.location.pathname; // Reload without ?admin
+          localStorage.removeItem('admin_pwd'); 
+          window.location.href = window.location.pathname; 
       }
   };
 }
@@ -129,30 +155,25 @@ async function loadMessages() {
 }
 
 async function deleteMessage(id) {
-  // 1. Check local storage for password
   let password = localStorage.getItem('admin_pwd');
 
-  // 2. If missing, prompt user
   if (!password) {
     password = prompt("Enter admin password:");
-    if (!password) return; // User cancelled
+    if (!password) return; 
   }
 
   if (!confirm('Delete message?')) return;
 
-  // 3. Call Secure RPC
   const { error } = await supabaseClient.rpc('admin_delete_message', {
     message_id: id,
     password_input: password
   });
 
   if (error) {
-    // 4. On error (wrong password), clear storage and alert
     console.error(error);
     localStorage.removeItem('admin_pwd');
     alert(`Failed: ${error.message}`);
   } else {
-    // 5. On success, save password and reload
     localStorage.setItem('admin_pwd', password);
     loadMessages();
   }
