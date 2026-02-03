@@ -46,8 +46,9 @@
       padding: 8px 24px; background: #333; color: #fff;
       border: none; border-radius: 4px;
       font-family: inherit;
+      cursor: pointer;
     }
-    button:disabled { background: #ccc; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
     
     .messages { border-top: 1px solid #eee; padding-top: 20px; }
     .message { border-bottom: 1px solid #eee; padding: 20px 0; position: relative; }
@@ -56,23 +57,20 @@
       position: absolute; right: 0; top: 0;
       background: #d00; color: #fff;
       border: none; padding: 4px 12px;
-      cursor: pointer;
+      font-size: 0.8rem;
     }
     
-    .admin-indicator {
-      background: #d00;
-      color: #fff; padding: 4px 8px;
+    /* Admin Button Styles */
+    .admin-btn {
       font-size: 0.75rem;
+      padding: 4px 10px;
       border-radius: 4px;
+      margin-left: auto;
+      font-weight: 600;
     }
     
-    #logoutBtn {
-        background: #666;
-        font-size: 0.75rem;
-        padding: 4px 8px;
-        margin-left: auto; 
-        cursor: pointer;
-    }
+    .btn-login { background: #222; color: #fff; }
+    .btn-logout { background: #666; color: #fff; }
     
     .error { background: #fee; color: #d00; padding: 10px; margin: 10px 0; }
   </style>
@@ -81,8 +79,8 @@
 <body>
 <h1>
   guestroom
-  <span id="adminIndicator" class="admin-indicator" style="display:none">ADMIN</span>
-  <button id="logoutBtn" style="display:none">Logout</button>
+  <button id="loginBtn" class="admin-btn btn-login" style="display:none">Admin Login</button>
+  <button id="logoutBtn" class="admin-btn btn-logout" style="display:none">Logout</button>
 </h1>
 
 <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
@@ -108,30 +106,71 @@ const sendBtn = document.getElementById('sendBtn');
 const counter = document.getElementById('charCounter');
 const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
+const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 
 // STATE
-// stored in RAM only (clears on refresh)
-let sessionPassword = null; 
+let sessionPassword = null; // Clears on refresh
+let fetchedMessages = [];   // Cache messages to avoid re-fetching on login
 
 // UI SETUP
 const params = new URLSearchParams(window.location.search);
-const showAdminUI = params.has('admin');
+const showAdminControls = params.has('admin');
 
-if (showAdminUI) {
-  document.getElementById('adminIndicator').style.display = 'inline-block';
-  logoutBtn.style.display = 'inline-block';
-  
-  // LOGOUT: Simply reload page without query params
-  logoutBtn.onclick = () => {
-      window.location.href = window.location.pathname; 
-  };
+function updateAdminUI() {
+  if (!showAdminControls) return;
+
+  if (sessionPassword) {
+    // Logged In
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+  } else {
+    // Logged Out (Default on Refresh)
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+  }
+  renderMessages();
 }
 
+if (showAdminControls) {
+  // Login Handler
+  loginBtn.onclick = () => {
+    const pwd = prompt("Enter admin password:");
+    if (pwd) {
+      sessionPassword = pwd;
+      updateAdminUI();
+    }
+  };
+
+  // Logout Handler
+  logoutBtn.onclick = () => {
+    sessionPassword = null;
+    updateAdminUI();
+    // Optional: completely remove ?admin from URL
+    // window.location.href = window.location.pathname; 
+  };
+  
+  updateAdminUI();
+}
+
+// MESSAGING LOGIC
 input.oninput = () => {
   counter.textContent = `${input.value.length} / 280`;
   sendBtn.disabled = input.value.trim().length === 0;
 };
+
+function renderMessages() {
+  messagesDiv.innerHTML = fetchedMessages.map(m => `
+    <div class="message">
+      ${sessionPassword ? `<button class="message-delete" onclick="deleteMessage(${m.id})">Delete</button>` : ''}
+      <div>${m.content
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")}</div>
+      <small>${new Date(m.created_at).toLocaleString()}</small>
+    </div>
+  `).join('');
+}
 
 async function loadMessages() {
   const { data, error } = await supabaseClient
@@ -144,42 +183,28 @@ async function loadMessages() {
     return;
   }
 
-  messagesDiv.innerHTML = data.map(m => `
-    <div class="message">
-      ${showAdminUI ? `<button class="message-delete" onclick="deleteMessage(${m.id})">Delete</button>` : ''}
-      <div>${m.content
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")}</div>
-      <small>${new Date(m.created_at).toLocaleString()}</small>
-    </div>
-  `).join('');
+  fetchedMessages = data;
+  renderMessages();
 }
 
 async function deleteMessage(id) {
-  // Use memory variable (sessionPassword) instead of localStorage
-  let password = sessionPassword;
-
-  if (!password) {
-    password = prompt("Enter admin password:");
-    if (!password) return; 
-  }
-
+  if (!sessionPassword) return; // Should be impossible via UI
   if (!confirm('Delete message?')) return;
 
   const { error } = await supabaseClient.rpc('admin_delete_message', {
     message_id: id,
-    password_input: password
+    password_input: sessionPassword
   });
 
   if (error) {
     console.error(error);
-    // Clear the bad password from memory so they can try again
-    sessionPassword = null; 
     alert(`Failed: ${error.message}`);
+    // If password was wrong, force logout
+    if (error.message.includes("Wrong password")) {
+        sessionPassword = null;
+        updateAdminUI();
+    }
   } else {
-    // Save to memory (survives until refresh)
-    sessionPassword = password; 
     loadMessages();
   }
 }
