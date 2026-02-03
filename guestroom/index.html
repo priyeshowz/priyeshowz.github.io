@@ -1,104 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>guestroom</title>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>guestroom</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase JS v2 -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
     body {
-      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, sans-serif;
       padding: 24px;
-      background: black;
-      color: white;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     h1 {
-      font-size: 24px;
+      font-size: 28px;
       margin-bottom: 16px;
-      font-weight: 600;
-    }
-
-    .wrap {
-      max-width: 640px;
     }
 
     textarea {
       width: 100%;
-      height: 120px;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 8px;
-      color: white;
+      min-height: 120px;
       padding: 12px;
-      font-size: 16px;
+      background: #111;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 6px;
       resize: none;
-      outline: none;
+      font-size: 16px;
     }
 
     .row {
       display: flex;
       align-items: center;
-      margin-top: 10px;
+      margin-top: 12px;
       gap: 12px;
     }
 
-    .counter {
-      font-size: 12px;
-      opacity: 0.6;
+    #counter {
+      font-size: 14px;
+      color: #aaa;
       flex: 1;
     }
 
     button {
-      background: white;
-      color: black;
+      padding: 10px 18px;
+      font-size: 16px;
       border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 6px;
       cursor: pointer;
     }
 
     button:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
-    .status {
-      margin-top: 12px;
-      font-size: 13px;
-      opacity: 0.7;
+    #status {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #aaa;
     }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <h1>guestroom</h1>
 
-    <textarea
-      id="message"
-      maxlength="280"
-      placeholder="leave something (280 chars max)"
-    ></textarea>
+  <h1>guestroom</h1>
 
-    <div class="row">
-      <div class="counter" id="counter">0 / 280</div>
-      <button id="send">send</button>
-    </div>
+  <textarea
+    id="message"
+    maxlength="280"
+    placeholder="leave something (280 chars max)"
+  ></textarea>
 
-    <div class="status" id="status"></div>
+  <div class="row">
+    <div id="counter">0 / 280</div>
+    <button id="send">send</button>
   </div>
 
+  <div id="status"></div>
+
   <script>
-    // --- SUPABASE CONFIG ---
+    // 🔐 Supabase config
     const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
     const SUPABASE_KEY = "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
 
-    const supabase = supabase.createClient(
+    // ⚠️ DO NOT name this `supabase`
+    const client = supabase.createClient(
       SUPABASE_URL,
       SUPABASE_KEY
     );
@@ -108,26 +99,22 @@
     const button = document.getElementById("send");
     const status = document.getElementById("status");
 
-    // --- CHARACTER COUNTER (FIXED) ---
+    // character counter
     textarea.addEventListener("input", () => {
       counter.textContent = `${textarea.value.length} / 280`;
     });
 
-    // --- SEND MESSAGE ---
+    // send message
     button.addEventListener("click", async () => {
       const text = textarea.value.trim();
-
-      if (!text) {
-        status.textContent = "cannot send empty message";
-        return;
-      }
+      if (!text) return;
 
       button.disabled = true;
       status.textContent = "sending…";
 
-      const { error } = await supabase
+      const { error } = await client
         .from("guestbook")
-        .insert([{ content: text }]);
+        .insert({ content: text });
 
       if (error) {
         console.error(error);
@@ -136,12 +123,12 @@
         return;
       }
 
-      // success
       textarea.value = "";
       counter.textContent = "0 / 280";
       status.textContent = "sent";
       button.disabled = false;
     });
   </script>
+
 </body>
 </html>
