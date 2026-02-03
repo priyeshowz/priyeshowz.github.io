@@ -15,13 +15,13 @@
       margin: 0 auto;
       color: #333;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 30px; color: #666; }
+    h1 { font-size: 1.5rem; margin-bottom: 10px; color: #666; display: flex; align-items: center; gap: 10px; }
     textarea {
       width: 100%; min-height: 100px; padding: 12px;
       border: 1px solid #ddd; border-radius: 4px;
       margin-bottom: 8px;
     }
-    .controls { display: flex; justify-content: space-between; align-items: center; }
+    .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
     button {
       padding: 8px 24px; background: #333; color: #fff;
       border: none; border-radius: 4px;
@@ -36,9 +36,16 @@
       cursor: pointer;
     }
     .admin-indicator {
-      margin-left: 10px; background: #d00;
+      background: #d00;
       color: #fff; padding: 4px 8px;
       font-size: 0.75rem;
+      border-radius: 4px;
+    }
+    #logoutBtn {
+        background: #666;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        margin-left: auto; /* Pushes button to far right */
     }
     .error { background: #fee; color: #d00; padding: 10px; margin: 10px 0; }
   </style>
@@ -48,6 +55,7 @@
 <h1>
   guestroom
   <span id="adminIndicator" class="admin-indicator" style="display:none">ADMIN</span>
+  <button id="logoutBtn" style="display:none">Logout</button>
 </h1>
 
 <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
@@ -73,6 +81,7 @@ const sendBtn = document.getElementById('sendBtn');
 const counter = document.getElementById('charCounter');
 const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
+const logoutBtn = document.getElementById('logoutBtn');
 
 // UI STATE (Shows buttons if ?admin is in URL)
 const params = new URLSearchParams(window.location.search);
@@ -80,6 +89,15 @@ const showAdminUI = params.has('admin');
 
 if (showAdminUI) {
   document.getElementById('adminIndicator').style.display = 'inline-block';
+  logoutBtn.style.display = 'inline-block';
+  
+  // LOGOUT LOGIC
+  logoutBtn.onclick = () => {
+      if(confirm("Log out of admin mode?")) {
+          localStorage.removeItem('admin_pwd'); // Clear saved password
+          window.location.href = window.location.pathname; // Reload without ?admin
+      }
+  };
 }
 
 input.oninput = () => {
