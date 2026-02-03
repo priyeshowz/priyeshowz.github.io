@@ -3,163 +3,145 @@
 <head>
   <meta charset="utf-8" />
   <title>guestroom</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      background: #000;
-      color: #fff;
+      padding: 24px;
+      background: black;
+      color: white;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    body {
-      padding: 16px;
-    }
-
     h1 {
-      font-size: 18px;
+      font-size: 24px;
+      margin-bottom: 16px;
       font-weight: 600;
-      opacity: 0.8;
-      margin-bottom: 12px;
     }
 
-    form {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
+    .wrap {
+      max-width: 640px;
     }
 
     textarea {
-      flex: 1;
-      resize: none;
-      height: 60px;
-      padding: 8px;
+      width: 100%;
+      height: 120px;
       background: #111;
-      color: #fff;
       border: 1px solid #333;
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: 8px;
+      color: white;
+      padding: 12px;
+      font-size: 16px;
+      resize: none;
+      outline: none;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      gap: 12px;
+    }
+
+    .counter {
+      font-size: 12px;
+      opacity: 0.6;
+      flex: 1;
     }
 
     button {
-      padding: 0 14px;
-      background: #fff;
-      color: #000;
+      background: white;
+      color: black;
       border: none;
-      border-radius: 6px;
-      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
       cursor: pointer;
     }
 
-    .count {
-      font-size: 11px;
+    button:disabled {
       opacity: 0.5;
-      margin-bottom: 12px;
+      cursor: not-allowed;
     }
 
-    .entry {
-      padding: 10px;
-      border-bottom: 1px solid #222;
-    }
-
-    .meta {
-      font-size: 11px;
-      opacity: 0.5;
-      margin-top: 4px;
-    }
-
-    .delete {
-      font-size: 11px;
-      opacity: 0.4;
-      cursor: pointer;
-      margin-left: 8px;
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.7;
     }
   </style>
 </head>
+
 <body>
+  <div class="wrap">
+    <h1>guestroom</h1>
 
-  <h1>guestroom</h1>
+    <textarea
+      id="message"
+      maxlength="280"
+      placeholder="leave something (280 chars max)"
+    ></textarea>
 
-  <form id="form">
-    <textarea id="message" maxlength="280" placeholder="leave something (280 chars max)"></textarea>
-    <button type="submit">send</button>
-  </form>
+    <div class="row">
+      <div class="counter" id="counter">0 / 280</div>
+      <button id="send">send</button>
+    </div>
 
-  <div class="count" id="count">0 / 280</div>
+    <div class="status" id="status"></div>
+  </div>
 
-  <div id="entries"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    // --- SUPABASE CONFIG ---
     const SUPABASE_URL = "https://vxejmnxqwnmxcmsvxkjl.supabase.co";
     const SUPABASE_KEY = "sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX";
 
-    const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
 
-    const form = document.getElementById("form");
-    const messageInput = document.getElementById("message");
-    const entriesEl = document.getElementById("entries");
-    const countEl = document.getElementById("count");
+    const textarea = document.getElementById("message");
+    const counter = document.getElementById("counter");
+    const button = document.getElementById("send");
+    const status = document.getElementById("status");
 
-    const ADMIN_DELETE = false; // set true locally if you want delete buttons
-
-    messageInput.addEventListener("input", () => {
-      countEl.textContent = `${messageInput.value.length} / 280`;
+    // --- CHARACTER COUNTER (FIXED) ---
+    textarea.addEventListener("input", () => {
+      counter.textContent = `${textarea.value.length} / 280`;
     });
 
-    async function loadMessages() {
-      const { data, error } = await supabase
-        .from("guestbook")
-        .select("*")
-        .order("created_at", { ascending: false });
+    // --- SEND MESSAGE ---
+    button.addEventListener("click", async () => {
+      const text = textarea.value.trim();
 
-      if (error) {
-        console.error(error);
+      if (!text) {
+        status.textContent = "cannot send empty message";
         return;
       }
 
-      entriesEl.innerHTML = "";
+      button.disabled = true;
+      status.textContent = "sending…";
 
-      data.forEach(row => {
-        const div = document.createElement("div");
-        div.className = "entry";
-        div.textContent = row.content;
+      const { error } = await supabase
+        .from("guestbook")
+        .insert([{ content: text }]);
 
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = new Date(row.created_at).toLocaleString();
+      if (error) {
+        console.error(error);
+        status.textContent = "failed to send";
+        button.disabled = false;
+        return;
+      }
 
-        if (ADMIN_DELETE) {
-          const del = document.createElement("span");
-          del.className = "delete";
-          del.textContent = "delete";
-          del.onclick = async () => {
-            await supabase.from("guestbook").delete().eq("id", row.id);
-            loadMessages();
-          };
-          meta.appendChild(del);
-        }
-
-        div.appendChild(meta);
-        entriesEl.appendChild(div);
-      });
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const text = messageInput.value.trim();
-      if (!text) return;
-
-      await supabase.from("guestbook").insert({ content: text });
-      messageInput.value = "";
-      countEl.textContent = "0 / 280";
-      loadMessages();
+      // success
+      textarea.value = "";
+      counter.textContent = "0 / 280";
+      status.textContent = "sent";
+      button.disabled = false;
     });
-
-    loadMessages();
   </script>
-
 </body>
 </html>
