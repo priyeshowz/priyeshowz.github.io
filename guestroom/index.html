@@ -31,6 +31,7 @@
       gap: 10px;
       font-weight: 600; 
       letter-spacing: -0.5px;
+      flex-wrap: wrap; /* PREVENTS LAYOUT BREAKING ON SMALL PHONES */
     }
 
     textarea {
@@ -60,17 +61,18 @@
       font-size: 0.8rem;
     }
     
-    /* Admin Button Styles */
-    .admin-btn {
-      font-size: 0.75rem;
-      padding: 4px 10px;
-      border-radius: 4px;
-      margin-left: auto;
-      font-weight: 600;
-    }
-    
+    /* Admin UI */
+    .admin-controls { margin-left: auto; display: flex; gap: 8px; }
+    .admin-btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; font-weight: 600; }
     .btn-login { background: #222; color: #fff; }
     .btn-logout { background: #666; color: #fff; }
+    .btn-backup { background: #007bff; color: #fff; }
+
+    .load-more-btn {
+        width: 100%; margin-top: 20px; background: #eee; 
+        color: #333; padding: 10px; font-size: 0.9rem; border: none;
+    }
+    .load-more-btn:hover { background: #ddd; }
     
     .error { background: #fee; color: #d00; padding: 10px; margin: 10px 0; }
   </style>
@@ -79,8 +81,11 @@
 <body>
 <h1>
   guestroom
-  <button id="loginBtn" class="admin-btn btn-login" style="display:none">Admin Login</button>
-  <button id="logoutBtn" class="admin-btn btn-logout" style="display:none">Logout</button>
+  <div class="admin-controls">
+      <button id="loginBtn" class="admin-btn btn-login" style="display:none">Login</button>
+      <button id="backupBtn" class="admin-btn btn-backup" style="display:none">Backup</button>
+      <button id="logoutBtn" class="admin-btn btn-logout" style="display:none">Logout</button>
+  </div>
 </h1>
 
 <textarea id="messageInput" placeholder="Leave a message..." maxlength="280"></textarea>
@@ -96,11 +101,12 @@
 // CONFIG
 const SUPABASE_URL = 'https://vxejmnxqwnmxcmsvxkjl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX';
+const PAGE_SIZE = 50; 
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// DOM ELEMENTS
+// DOM
 const input = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const counter = document.getElementById('charCounter');
@@ -108,10 +114,12 @@ const messagesDiv = document.getElementById('messagesContainer');
 const errorDiv = document.getElementById('errorContainer');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const backupBtn = document.getElementById('backupBtn');
 
 // STATE
-let sessionPassword = null; // Clears on refresh
-let fetchedMessages = [];   // Cache messages to avoid re-fetching on login
+let sessionPassword = null; 
+let fetchedMessages = [];
+let currentOffset = 0;
 
 // UI SETUP
 const params = new URLSearchParams(window.location.search);
@@ -121,39 +129,46 @@ function updateAdminUI() {
   if (!showAdminControls) return;
 
   if (sessionPassword) {
-    // Logged In
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
+    backupBtn.style.display = 'inline-block';
   } else {
-    // Logged Out (Default on Refresh)
     loginBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
+    backupBtn.style.display = 'none';
   }
-  renderMessages();
+  // Re-render to show/hide delete buttons
+  renderMessages(); 
 }
 
 if (showAdminControls) {
-  // Login Handler
   loginBtn.onclick = () => {
     const pwd = prompt("Enter admin password:");
-    if (pwd) {
-      sessionPassword = pwd;
-      updateAdminUI();
-    }
+    if (pwd) { sessionPassword = pwd; updateAdminUI(); }
   };
 
-  // Logout Handler
   logoutBtn.onclick = () => {
     sessionPassword = null;
     updateAdminUI();
-    // Optional: completely remove ?admin from URL
-    // window.location.href = window.location.pathname; 
+  };
+
+  // BACKUP FUNCTION: Dumps DB to JSON file
+  backupBtn.onclick = async () => {
+      const { data, error } = await supabaseClient.from('messages').select('*').order('created_at');
+      if(error) { alert(error.message); return; }
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Filename safe for Windows/Mac (YYYY-MM-DD)
+      a.download = `guestroom_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
   };
   
   updateAdminUI();
 }
 
-// MESSAGING LOGIC
+// MESSAGING
 input.oninput = () => {
   counter.textContent = `${input.value.length} / 280`;
   sendBtn.disabled = input.value.trim().length === 0;
@@ -170,63 +185,68 @@ function renderMessages() {
       <small>${new Date(m.created_at).toLocaleString()}</small>
     </div>
   `).join('');
+
+  // Load More Button
+  const loadBtn = document.createElement('button');
+  loadBtn.className = 'load-more-btn';
+  loadBtn.innerText = "Load older messages";
+  loadBtn.onclick = () => loadMessages(false);
+  
+  // Only show button if we actually have messages
+  if (fetchedMessages.length > 0) {
+      messagesDiv.appendChild(loadBtn);
+  }
 }
 
-async function loadMessages() {
+async function loadMessages(isRefresh = true) {
+  if (isRefresh) { currentOffset = 0; fetchedMessages = []; }
+
   const { data, error } = await supabaseClient
     .from('messages')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(currentOffset, currentOffset + PAGE_SIZE - 1);
 
-  if (error) {
-    errorDiv.innerHTML = `<div class="error">${error.message}</div>`;
-    return;
+  if (error) { errorDiv.innerHTML = `<div class="error">${error.message}</div>`; return; }
+
+  if (data.length === 0) {
+      if(!isRefresh) alert("No older messages.");
+      return;
   }
 
-  fetchedMessages = data;
+  fetchedMessages = [...fetchedMessages, ...data];
+  currentOffset += data.length;
   renderMessages();
 }
 
 async function deleteMessage(id) {
-  if (!sessionPassword) return; // Should be impossible via UI
-  if (!confirm('Delete message?')) return;
+  if (!sessionPassword || !confirm('Delete message?')) return;
 
   const { error } = await supabaseClient.rpc('admin_delete_message', {
-    message_id: id,
-    password_input: sessionPassword
+    message_id: id, password_input: sessionPassword
   });
 
   if (error) {
-    console.error(error);
     alert(`Failed: ${error.message}`);
-    // If password was wrong, force logout
-    if (error.message.includes("Wrong password")) {
-        sessionPassword = null;
-        updateAdminUI();
-    }
+    // Security: If password wrong, force logout immediately
+    if (error.message.includes("Wrong password")) { sessionPassword = null; updateAdminUI(); }
   } else {
-    loadMessages();
+    // Refresh list from scratch to reflect deletion
+    loadMessages(true);
   }
 }
 
 async function sendMessage() {
   const content = input.value.trim();
   if (!content) return;
-
   const { error } = await supabaseClient.from('messages').insert({ content });
-  if (error) {
-    errorDiv.innerHTML = `<div class="error">${error.message}</div>`;
-    return;
-  }
-
-  input.value = '';
-  counter.textContent = '0 / 280';
-  sendBtn.disabled = true;
-  loadMessages();
+  if (error) { errorDiv.innerHTML = `<div class="error">${error.message}</div>`; return; }
+  input.value = ''; counter.textContent = '0 / 280'; sendBtn.disabled = true;
+  loadMessages(true);
 }
 
 sendBtn.onclick = sendMessage;
-loadMessages();
+loadMessages(true);
 </script>
 </body>
 </html>
