@@ -282,5 +282,103 @@ async function sendMessage() {
 sendBtn.onclick = sendMessage;
 loadMessages(true);
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/**
+ * PRESENCE SYSTEM: MAIN PAGE
+ */
+const PAGE_CONFIG = {
+    // 1. CONFIGURATION
+    pageId: 'guest',        // Matches DB row 'guest'
+    pixelColor: '#39FF14', // 
+    
+    // 2. GRID SETTINGS
+    gridDimension: 120,    // 120x120 grid
+    safeMarginRatio: 0.05, // 5% margin from edge
+    renderGap: 0,          // 0 = solid block
+
+    // 3. API KEYS (Paste yours here)
+    supabaseUrl: 'https://vxejmnxqwnmxcmsvxkjl.supabase.co',
+    supabaseKey: 'sb_publishable_3rpDu6-tw90RYNpgVqq_mA_DmxbBNYX'
+};
+
+(function() {
+    // --- SETUP CANVAS ---
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-1; pointer-events:none;';
+    document.body.appendChild(canvas);
+
+    // --- STATE ---
+    let filledCount = 0;
+
+    // --- ALGORITHM: SHELL FILL (Top-Left Anchor) ---
+    function getPixelCoord(n) {
+        const k = Math.floor(Math.sqrt(n));
+        const remainder = n - (k * k);
+        let x, y;
+        
+        if (remainder <= k) {
+            x = k; y = remainder; 
+        } else {
+            x = (2 * k) - remainder; y = k;
+        }
+        return {x, y};
+    }
+
+    // --- RENDER ---
+    function draw() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = w; canvas.height = h;
+        
+        const minDim = Math.min(w, h);
+        const margin = Math.floor(minDim * PAGE_CONFIG.safeMarginRatio);
+        const pixelSize = Math.max(1, Math.floor((minDim - (margin * 2)) / PAGE_CONFIG.gridDimension));
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = PAGE_CONFIG.pixelColor;
+
+        for (let i = 0; i < filledCount; i++) {
+            const coord = getPixelCoord(i);
+            if (coord.x >= PAGE_CONFIG.gridDimension || coord.y >= PAGE_CONFIG.gridDimension) break;
+            
+            ctx.fillRect(
+                margin + (coord.x * pixelSize), 
+                margin + (coord.y * pixelSize), 
+                pixelSize - PAGE_CONFIG.renderGap, 
+                pixelSize - PAGE_CONFIG.renderGap
+            );
+        }
+    }
+
+    // --- SYNC ---
+    async function init() {
+        const supabase = window.supabase.createClient(PAGE_CONFIG.supabaseUrl, PAGE_CONFIG.supabaseKey);
+
+        // Atomic Increment
+        const { data, error } = await supabase.rpc('increment_pixel', { target_page: PAGE_CONFIG.pageId });
+
+        if (!error && data !== null) {
+            filledCount = data;
+        } else {
+            // Fallback Read
+            const { data: readData } = await supabase
+                .from('presence_pixels')
+                .select('filled_count')
+                .eq('page_id', PAGE_CONFIG.pageId)
+                .single();
+            if (readData) filledCount = readData.filled_count;
+        }
+        draw();
+        window.addEventListener('resize', draw);
+    }
+
+    init();
+})();
+</script>
+
 </body>
 </html>
